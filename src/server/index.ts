@@ -20,7 +20,7 @@ app.use(conversationRouter);
 app.use(healthRouter);
 app.use(vapiRouter);
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`[dumont] Server running on port ${PORT}`);
 });
 
