@@ -1,0 +1,136 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "description": "Dumont Agent validation scenarios — migrated from simulator + new cases",
+    "target_pass_rate": 72,
+    "total_scenarios": 25,
+    "categories": ["domestic_light", "domestic_midsize", "domestic_heavy", "international", "round_trip", "special_requirements", "budget_mismatch", "edge_case", "repeat_client", "vague_request"]
+  },
+  "scenarios": [
+    {
+      "id": "S01", "category": "domestic_light", "title": "TEB→PBI Light Jet — Snowbird Corridor",
+      "request": "I need a light jet from Teterboro to Palm Beach on April 15 for 4 passengers. Budget around $30,000.",
+      "expected": { "departure": "KTEB", "arrival": "KPBI", "pax": 4, "aircraftClass": "light", "shouldClose": true }
+    },
+    {
+      "id": "S02", "category": "domestic_light", "title": "NYC→PBI Informal",
+      "request": "Can you get me from NY to South Florida next Friday? 3 people, budget $25k-$35k.",
+      "expected": { "departure": "KTEB", "arrival": "KPBI", "pax": 3, "aircraftClass": "light", "shouldClose": true }
+    },
+    {
+      "id": "S03", "category": "domestic_midsize", "title": "ORD→ASE Ski Trip",
+      "request": "6 of us flying from Chicago to Aspen on May 1st. We have ski gear. Looking to spend $40k-$55k.",
+      "expected": { "departure": "KORD", "arrival": "KASE", "pax": 6, "aircraftClass": null, "shouldClose": true }
+    },
+    {
+      "id": "S04", "category": "domestic_heavy", "title": "VNY→CABO Heavy RT",
+      "request": "Round trip from Van Nuys to Cabo for 8 passengers on June 1st returning June 5th. Budget up to $80,000.",
+      "expected": { "departure": "KVNY", "arrival": "MMSD", "pax": 8, "aircraftClass": "heavy", "shouldClose": true }
+    },
+    {
+      "id": "S05", "category": "international", "title": "TEB→Nassau Bahamas",
+      "request": "I'd like to charter a flight from Teterboro to Nassau Bahamas on April 20 for 5 passengers. Budget $35,000-$50,000.",
+      "expected": { "departure": "KTEB", "arrival": "MYNN", "pax": 5, "aircraftClass": null, "shouldClose": true }
+    },
+    {
+      "id": "S06", "category": "budget_mismatch", "title": "Budget Too Low for Route",
+      "request": "Need to fly 6 people from LA to Aspen on April 25 on a heavy jet. Budget around $15,000.",
+      "expected": { "departure": "KVNY", "arrival": "KASE", "pax": 6, "aircraftClass": "heavy", "shouldClose": false, "failReason": "budget" }
+    },
+    {
+      "id": "S07", "category": "edge_case", "title": "Too Many Passengers",
+      "request": "20 people from Chicago to Miami on April 10. Budget $50,000.",
+      "expected": { "departure": "KORD", "arrival": "KMIA", "pax": 20, "aircraftClass": null, "shouldClose": false, "failReason": "pax" }
+    },
+    {
+      "id": "S08", "category": "special_requirements", "title": "Pets + Golf Clubs",
+      "request": "4 passengers from Dallas to Palm Beach on April 18 with 2 dogs and golf clubs. Budget $30k-$40k.",
+      "expected": { "departure": "KDAL", "arrival": "KPBI", "pax": 4, "aircraftClass": null, "shouldClose": true }
+    },
+    {
+      "id": "S09", "category": "vague_request", "title": "No Route — Too Vague",
+      "request": "What would it cost to fly somewhere nice?",
+      "expected": { "departure": null, "arrival": null, "pax": null, "aircraftClass": null, "shouldClose": false, "failReason": "qualification" }
+    },
+    {
+      "id": "S10", "category": "domestic_light", "title": "HOU→DAL Short Hop",
+      "request": "Quick flight from Houston to Dallas tomorrow for 2. Budget $10k-$15k.",
+      "expected": { "departure": "KHOU", "arrival": "KDAL", "pax": 2, "aircraftClass": null, "shouldClose": true }
+    },
+    {
+      "id": "S11", "category": "round_trip", "title": "TEB→PBI Round Trip",
+      "request": "Round trip Teterboro to Palm Beach, departing April 20 returning April 25, 4 passengers. Budget $55,000.",
+      "expected": { "departure": "KTEB", "arrival": "KPBI", "pax": 4, "aircraftClass": null, "shouldClose": true }
+    },
+    {
+      "id": "S12", "category": "domestic_light", "title": "Vegas→VNY Quick",
+      "request": "2 people Las Vegas to Van Nuys this Friday. Light jet. Budget about $12,000.",
+      "expected": { "departure": "KLAS", "arrival": "KVNY", "pax": 2, "aircraftClass": "light", "shouldClose": true }
+    },
+    {
+      "id": "S13", "category": "edge_case", "title": "Email Format with Signature",
+      "request": "Hi there,\n\nI'd like to charter a flight from Chicago to Palm Beach on May 5th for 5 people.\nBudget is $35,000-$45,000.\n\nBest,\nMichael Torres\nmichael@torres.com",
+      "expected": { "departure": "KORD", "arrival": "KPBI", "pax": 5, "aircraftClass": null, "shouldClose": true }
+    },
+    {
+      "id": "S14", "category": "budget_mismatch", "title": "Ultra-long Budget Miss",
+      "request": "Need a Global 7500 from NY to London on May 20 for 10 passengers. Budget $50,000.",
+      "expected": { "departure": "KTEB", "arrival": null, "pax": 10, "aircraftClass": "ultra_long_range", "shouldClose": false, "failReason": "budget" }
+    },
+    {
+      "id": "S15", "category": "domestic_midsize", "title": "FLL→ORD Midsize",
+      "request": "Midsize jet from Fort Lauderdale to Chicago on April 22 for 7 passengers. Budget $30k-$40k.",
+      "expected": { "departure": "KFLL", "arrival": "KORD", "pax": 7, "aircraftClass": "midsize", "shouldClose": true }
+    },
+    {
+      "id": "S16", "category": "edge_case", "title": "No Budget Provided",
+      "request": "Need a flight from Teterboro to Aspen on May 10 for 4 passengers.",
+      "expected": { "departure": "KTEB", "arrival": "KASE", "pax": 4, "aircraftClass": null, "shouldClose": false, "failReason": "no_budget" }
+    },
+    {
+      "id": "S17", "category": "special_requirements", "title": "Wheelchair Access",
+      "request": "3 passengers from Palm Beach to Chicago on April 25. One passenger requires wheelchair access. Budget $30,000.",
+      "expected": { "departure": "KPBI", "arrival": "KORD", "pax": 3, "aircraftClass": null, "shouldClose": true }
+    },
+    {
+      "id": "S18", "category": "domestic_heavy", "title": "ORD→KLAS Heavy Group",
+      "request": "12 passengers from Chicago to Las Vegas on May 15. Need a heavy jet. Budget $50k-$70k.",
+      "expected": { "departure": "KORD", "arrival": "KLAS", "pax": 12, "aircraftClass": "heavy", "shouldClose": true }
+    },
+    {
+      "id": "S19", "category": "edge_case", "title": "SMS Shorthand",
+      "request": "4 ppl chi to miami fri round trip 25k",
+      "expected": { "departure": "KORD", "arrival": "KMIA", "pax": 4, "aircraftClass": null, "shouldClose": true }
+    },
+    {
+      "id": "S20", "category": "repeat_client", "title": "Repeat Client Reference",
+      "request": "Hey it's John Smith again. Same route KTEB to KPBI on May 10 for 4 passengers. Budget $30k.",
+      "expected": { "departure": "KTEB", "arrival": "KPBI", "pax": 4, "aircraftClass": null, "shouldClose": true }
+    },
+    {
+      "id": "S21", "category": "international", "title": "DAL→Bermuda",
+      "request": "6 passengers from Dallas to Bermuda on June 10. Super mid preferred. Budget $45k-$60k.",
+      "expected": { "departure": "KDAL", "arrival": "TXKF", "pax": 6, "aircraftClass": "super_mid", "shouldClose": true }
+    },
+    {
+      "id": "S22", "category": "domestic_light", "title": "Couples Trip",
+      "request": "2 couples from Teterboro to Palm Beach on April 30. Light jet. Budget around $28,000.",
+      "expected": { "departure": "KTEB", "arrival": "KPBI", "pax": 4, "aircraftClass": "light", "shouldClose": true }
+    },
+    {
+      "id": "S23", "category": "edge_case", "title": "ICAO Codes Direct",
+      "request": "Charter KTEB to KPBI on 2026-04-15 for 4 pax. Budget $30,000.",
+      "expected": { "departure": "KTEB", "arrival": "KPBI", "pax": 4, "aircraftClass": null, "shouldClose": true }
+    },
+    {
+      "id": "S24", "category": "vague_request", "title": "No Date or Pax",
+      "request": "How much to fly from Chicago to Aspen?",
+      "expected": { "departure": "KORD", "arrival": "KASE", "pax": null, "aircraftClass": null, "shouldClose": false, "failReason": "qualification" }
+    },
+    {
+      "id": "S25", "category": "domestic_midsize", "title": "Connecticut to Miami",
+      "request": "5 passengers from Connecticut to Miami on April 12. Midsize. Budget $25k-$35k.",
+      "expected": { "departure": "KHPN", "arrival": "KMIA", "pax": 5, "aircraftClass": "midsize", "shouldClose": true }
+    }
+  ]
+}

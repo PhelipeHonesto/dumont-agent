@@ -1,0 +1,87 @@
+/**
+ * Mission Control — OSA Design System
+ * Dark-first. Aviation instrument panel aesthetic. Dense data.
+ */
+
+:root {
+  /* Brand */
+  --osa-orange: #E74B1D;
+  --osa-cream: #F5F0E8;
+  --near-black: #1A1A1A;
+
+  /* Semantic */
+  --bg: #0F0F0F;
+  --surface: #161616;
+  --surface-elevated: #1C1C1C;
+  --surface-hover: #222222;
+  --surface-active: rgba(231, 75, 29, 0.08);
+  --border: #2A2A2A;
+
+  --text-primary: #E8E8E8;
+  --text-secondary: #B0B0B0;
+  --text-muted: #666666;
+
+  --green: #22C55E;
+  --amber: #F59E0B;
+  --osa-red: #DC2626;
+
+  /* Typography */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
+
+  /* Layout breakpoints (reference only — used via media queries) */
+  --bp-tablet: 768px;
+  --bp-desktop: 1200px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #444; }
+
+/* Focus indicators — accessibility */
+:focus-visible {
+  outline: 2px solid var(--osa-orange);
+  outline-offset: 2px;
+}
+button:focus-visible { border-radius: 4px; }
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+/* Selection */
+::selection {
+  background: rgba(231, 75, 29, 0.3);
+  color: #fff;
+}
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-hover) 25%, var(--border) 50%, var(--surface-hover) 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}

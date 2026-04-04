@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+dashboard/node_modules/
+
+# Build output
+dist/
+dashboard/dist/
+
+# Environment — NEVER commit
+.env
+.env.local
+.env.*.local
+
+# Runtime data
+data/
+
+# Editor / OS
+.DS_Store
+.claude/
+*.log
+*.json.bak

@@ -1,0 +1,33 @@
+{
+  "name": "@osa/dumont-agent",
+  "version": "0.1.0",
+  "description": "AI-powered charter brokerage engine for Orange Sunshine Aviation",
+  "type": "module",
+  "main": "dist/orchestrator/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "sim": "tsx src/run-sim.ts",
+    "deal": "tsx src/run-deal.ts",
+    "dashboard": "cd dashboard && npx vite --open",
+    "dashboard:build": "cd dashboard && npx vite build",
+    "typecheck": "tsc --noEmit",
+    "server": "npx tsx src/server/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "license": "UNLICENSED"
+}
