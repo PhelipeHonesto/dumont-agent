@@ -8,6 +8,7 @@
 
 import Database from "better-sqlite3";
 import path from "node:path";
+import { mkdirSync } from "node:fs";
 import { runMigrations } from "./migrations.js";
 
 let db: Database.Database | null = null;
@@ -20,6 +21,11 @@ export function getDb(dbPath?: string): Database.Database {
   if (db && !dbPath) return db;
 
   const resolvedPath = dbPath ?? process.env.DUMONT_DB_PATH ?? path.resolve("./data/dumont.db");
+
+  // Auto-create data directory (skip for in-memory databases)
+  if (resolvedPath !== ":memory:") {
+    mkdirSync(path.dirname(resolvedPath), { recursive: true });
+  }
 
   const instance = new Database(resolvedPath);
   instance.pragma("journal_mode = WAL");
