@@ -38,7 +38,8 @@ function loadTemplate(name: string): string {
 export function renderTemplate(templateName: string, data: Record<string, string | number>): string {
   let html = loadTemplate(templateName);
   for (const [key, value] of Object.entries(data)) {
-    html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), String(value));
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    html = html.replace(new RegExp(`\\{\\{${escaped}\\}\\}`, "g"), String(value));
   }
   // Remove any remaining unreplaced placeholders
   html = html.replace(/\{\{[^}]+\}\}/g, "");

@@ -76,9 +76,16 @@ function transferToolCall(destination: string) {
 // ── Auth ────────────────────────────────────────────────────────────────
 
 const VAPI_SECRET = process.env.VAPI_SECRET;
+const IS_PROD = process.env.NODE_ENV === "production";
 
 function checkAuth(req: Request, res: Response): boolean {
-  if (!VAPI_SECRET) return true; // No secret configured — allow all (dev mode)
+  if (!VAPI_SECRET) {
+    if (IS_PROD) {
+      res.status(401).json({ error: "VAPI_SECRET required in production" });
+      return false;
+    }
+    return true; // Dev only — allow without secret
+  }
   const header = req.headers.authorization;
   if (header === `Bearer ${VAPI_SECRET}`) return true;
   res.status(401).json({ error: "unauthorized" });

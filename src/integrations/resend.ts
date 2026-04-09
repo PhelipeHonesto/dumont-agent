@@ -128,7 +128,10 @@ export class ResendClient {
    * @returns True if valid.
    */
   verifyWebhook(payload: string, signature: string): boolean {
-    if (!this.webhookSecret) return true;
+    if (!this.webhookSecret) {
+      console.warn("[security] Resend webhook secret not configured — rejecting unverified request");
+      return false;
+    }
     const expected = createHmac("sha256", this.webhookSecret)
       .update(payload)
       .digest("hex");

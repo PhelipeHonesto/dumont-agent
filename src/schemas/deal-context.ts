@@ -90,6 +90,12 @@ export const StageHistoryEntrySchema = z.object({
   stage: DealStage,
   timestamp: z.string().datetime(),
   duration: z.number().nonnegative().nullable(),
+  /** Populated only for regression entries — describes the backward transition. */
+  regression: z.object({
+    from: DealStage,
+    to: DealStage,
+    reason: z.string(),
+  }).nullable().optional(),
 });
 export type StageHistoryEntry = z.infer<typeof StageHistoryEntrySchema>;
 

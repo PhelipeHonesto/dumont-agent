@@ -614,7 +614,7 @@ describe("ClientProfile updates via recordDeal", () => {
     const profile = stores.clientProfiles.get("alice@carter.com");
     expect(profile!.dealHistory).toHaveLength(1);
     expect(profile!.dealHistory[0]!.route).toBe("KTEB-KMIA");
-    expect(profile!.dealHistory[0]!.price).toBe(35970);
+    expect(profile!.dealHistory[0]!.price).toBe(3597000); // cents
     expect(profile!.dealHistory[0]!.outcome).toBe("closed");
 
     stores.cleanup();

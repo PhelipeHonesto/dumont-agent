@@ -321,11 +321,11 @@ describe("webhook signature verification", () => {
     expect(client.verifyWebhook(payload, "invalid_signature")).toBe(false);
   });
 
-  it("allows all when no secret configured", () => {
+  it("rejects when no secret configured (fail-closed)", () => {
     const client = new BlandAiClient({ apiKey: "test" }); // no webhookSecret
     const payload = JSON.stringify(voiceWebhook());
 
-    expect(client.verifyWebhook(payload, "anything")).toBe(true);
+    expect(client.verifyWebhook(payload, "anything")).toBe(false);
   });
 
   it("rejects tampered payload", () => {

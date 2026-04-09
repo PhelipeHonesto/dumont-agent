@@ -377,9 +377,14 @@ export function checksAfterQuote(ctx: DealContext): GuardianCheck[] {
     }
   }
 
-  // Margin check (8-15% per spec)
+  // Margin check (8-15% per spec, >50% is critical — pipeline halt)
   if (quote.margin !== null) {
-    if (quote.margin < MARGIN_POLICY.min) {
+    if (quote.margin > 0.50) {
+      checks.push(criticalFail(
+        "margin_policy",
+        `Margin ${(quote.margin * 100).toFixed(1)}% exceeds 50% hard limit — pipeline halted`,
+      ));
+    } else if (quote.margin < MARGIN_POLICY.min) {
       checks.push(warnCheck(
         "margin_policy",
         `Margin ${(quote.margin * 100).toFixed(1)}% below minimum ${MARGIN_POLICY.min * 100}%`,

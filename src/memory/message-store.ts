@@ -37,7 +37,7 @@ export class MessageStore {
   }
 
   /** Persist a message. */
-  save_message(message: Message): void {
+  saveMessage(message: Message): void {
     this.messages.push(message);
     this.save();
   }

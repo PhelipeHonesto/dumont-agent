@@ -164,7 +164,7 @@ describe("MessageStore persists through save/load cycle", () => {
 
     // Save
     const store1 = new MessageStore(path);
-    store1.save_message(makeMsg({ id: "persist_001", body: "Persisted message" }));
+    store1.saveMessage(makeMsg({ id: "persist_001", body: "Persisted message" }));
     expect(store1.count).toBe(1);
 
     // Recreate from same file

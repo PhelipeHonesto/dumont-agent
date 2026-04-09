@@ -258,9 +258,11 @@ describe("regressStage history logging", () => {
     expect(ctx.stageHistory.length).toBe(historyBefore + 2);
 
     const regressionEntry = ctx.stageHistory[ctx.stageHistory.length - 2]!;
-    expect(regressionEntry.stage).toContain("regression");
-    expect(regressionEntry.stage).toContain("presented");
-    expect(regressionEntry.stage).toContain("estimated");
+    expect(regressionEntry.stage).toBe("estimated");
+    expect(regressionEntry.regression).toBeDefined();
+    expect(regressionEntry.regression!.from).toBe("presented");
+    expect(regressionEntry.regression!.to).toBe("estimated");
+    expect(regressionEntry.regression!.reason).toBe("Client wants a lighter jet");
 
     const newStageEntry = ctx.stageHistory[ctx.stageHistory.length - 1]!;
     expect(newStageEntry.stage).toBe("estimated");
@@ -365,13 +367,11 @@ describe("double regression", () => {
     regressStage(ctx, "sourced", "Reason 1");
     regressStage(ctx, "estimated", "Reason 2");
 
-    const regressions = ctx.stageHistory.filter((h) =>
-      h.stage.startsWith("regression:"),
-    );
+    const regressions = ctx.stageHistory.filter((h) => h.regression != null);
     expect(regressions.length).toBe(2);
-    expect(regressions[0]!.stage).toContain("presented");
-    expect(regressions[0]!.stage).toContain("sourced");
-    expect(regressions[1]!.stage).toContain("sourced");
-    expect(regressions[1]!.stage).toContain("estimated");
+    expect(regressions[0]!.regression!.from).toBe("presented");
+    expect(regressions[0]!.regression!.to).toBe("sourced");
+    expect(regressions[1]!.regression!.from).toBe("sourced");
+    expect(regressions[1]!.regression!.to).toBe("estimated");
   });
 });

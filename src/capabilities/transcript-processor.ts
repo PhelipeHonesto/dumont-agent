@@ -141,7 +141,7 @@ function detectEntities(
   const entities: DetectedEntity[] = [];
   const speakerLabel = speaker === "broker" || speaker === "counterparty" || speaker === "unknown"
     ? speaker
-    : (speaker === "0" || speaker === 0 as unknown as string ? "broker" : "counterparty");
+    : (speaker === "0" ? "broker" : "counterparty");
 
   // Price
   const price = extractPrice(text);

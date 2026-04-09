@@ -398,7 +398,7 @@ describe("MessageStore", () => {
   it("save persists and getByDealId retrieves", () => {
     const { store, cleanup } = makeStore();
     const msg = makeMsg({ dealId: "deal_001" });
-    store.save_message(msg);
+    store.saveMessage(msg);
 
     expect(store.getByDealId("deal_001")).toHaveLength(1);
     expect(store.getByDealId("deal_001")[0]!.id).toBe(msg.id);
@@ -408,7 +408,7 @@ describe("MessageStore", () => {
   it("getByMessageId returns correct message", () => {
     const { store, cleanup } = makeStore();
     const msg = makeMsg({ id: "msg_specific" });
-    store.save_message(msg);
+    store.saveMessage(msg);
 
     expect(store.getByMessageId("msg_specific")).not.toBeNull();
     expect(store.getByMessageId("msg_specific")!.body).toBe("Test message");
@@ -418,9 +418,9 @@ describe("MessageStore", () => {
 
   it("getByContact filters by sender", () => {
     const { store, cleanup } = makeStore();
-    store.save_message(makeMsg({ from: "sarah@chen.com" }));
-    store.save_message(makeMsg({ from: "other@person.com" }));
-    store.save_message(makeMsg({ from: "sarah@chen.com" }));
+    store.saveMessage(makeMsg({ from: "sarah@chen.com" }));
+    store.saveMessage(makeMsg({ from: "other@person.com" }));
+    store.saveMessage(makeMsg({ from: "sarah@chen.com" }));
 
     expect(store.getByContact("sarah@chen.com")).toHaveLength(2);
     expect(store.getByContact("other@person.com")).toHaveLength(1);
@@ -429,8 +429,8 @@ describe("MessageStore", () => {
 
   it("count returns total messages", () => {
     const { store, cleanup } = makeStore();
-    store.save_message(makeMsg());
-    store.save_message(makeMsg());
+    store.saveMessage(makeMsg());
+    store.saveMessage(makeMsg());
     expect(store.count).toBe(2);
     cleanup();
   });

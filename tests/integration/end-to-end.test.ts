@@ -113,12 +113,12 @@ describe("email inbound → new deal → full pipeline → closed", () => {
       },
     });
     expect(routeResult.isNewDeal).toBe(true);
-    msgStore.save_message(inboundMsg);
+    msgStore.saveMessage(inboundMsg);
 
     // 3. Respond drafts operator RFQ
     const rfqDraft = await respond(routeResult.deal, inboundMsg, "quote_request");
     expect(rfqDraft.draft.draftedBy).toBe("dumont");
-    msgStore.save_message(rfqDraft.draft);
+    msgStore.saveMessage(rfqDraft.draft);
 
     // 4. Confidence gate holds (no autonomy store → delayed or hold)
     const gate1 = evaluateConfidence(rfqDraft.draft, routeResult.deal, null);
@@ -148,7 +148,7 @@ describe("email inbound → new deal → full pipeline → closed", () => {
     const routeResult2 = await routeMessage(opMsg, [ad], { createDeal: async () => createDealContext("live") });
     expect(routeResult2.intent).toBe("quote_response");
     expect(routeResult2.action.type).toBe("advance_to_quoted");
-    msgStore.save_message(opMsg);
+    msgStore.saveMessage(opMsg);
 
     // 6. Client confirms
     advanceStage(routeResult.deal, "quoted");
@@ -357,10 +357,10 @@ describe("stage regression through comms layer", () => {
     expect(deal.trip.departure).toBe("KTEB");
     expect(deal.estimate.priceRange).not.toBeNull();
     // History
-    const regressions = deal.stageHistory.filter((h) => h.stage.startsWith("regression:"));
+    const regressions = deal.stageHistory.filter((h) => h.regression != null);
     expect(regressions).toHaveLength(1);
-    expect(regressions[0]!.stage).toContain("presented");
-    expect(regressions[0]!.stage).toContain("estimated");
+    expect(regressions[0]!.regression!.from).toBe("presented");
+    expect(regressions[0]!.regression!.to).toBe("estimated");
   });
 });
 

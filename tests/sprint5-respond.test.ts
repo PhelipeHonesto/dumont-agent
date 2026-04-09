@@ -77,8 +77,8 @@ describe("edit memory", () => {
 
   it("returns edited drafts sorted by recency", () => {
     const { msgStore, cleanup } = makeStore();
-    msgStore.save_message(makeMsg({ intent: "follow_up", editDistance: 3, originalDraft: "Draft v1", body: "Edited v1", sentAt: "2026-04-01T10:00:00.000Z" }));
-    msgStore.save_message(makeMsg({ intent: "follow_up", editDistance: 2, originalDraft: "Draft v2", body: "Edited v2", sentAt: "2026-04-02T10:00:00.000Z" }));
+    msgStore.saveMessage(makeMsg({ intent: "follow_up", editDistance: 3, originalDraft: "Draft v1", body: "Edited v1", sentAt: "2026-04-01T10:00:00.000Z" }));
+    msgStore.saveMessage(makeMsg({ intent: "follow_up", editDistance: 2, originalDraft: "Draft v2", body: "Edited v2", sentAt: "2026-04-02T10:00:00.000Z" }));
 
     const history = getEditHistory(msgStore, "follow_up", "email");
     expect(history).toHaveLength(2);
@@ -89,9 +89,9 @@ describe("edit memory", () => {
 
   it("filters by intent + channel", () => {
     const { msgStore, cleanup } = makeStore();
-    msgStore.save_message(makeMsg({ intent: "follow_up", channel: "email", editDistance: 1, originalDraft: "A", body: "B" }));
-    msgStore.save_message(makeMsg({ intent: "quote_request", channel: "email", editDistance: 1, originalDraft: "C", body: "D" }));
-    msgStore.save_message(makeMsg({ intent: "follow_up", channel: "bland_text", editDistance: 1, originalDraft: "E", body: "F" }));
+    msgStore.saveMessage(makeMsg({ intent: "follow_up", channel: "email", editDistance: 1, originalDraft: "A", body: "B" }));
+    msgStore.saveMessage(makeMsg({ intent: "quote_request", channel: "email", editDistance: 1, originalDraft: "C", body: "D" }));
+    msgStore.saveMessage(makeMsg({ intent: "follow_up", channel: "bland_text", editDistance: 1, originalDraft: "E", body: "F" }));
 
     expect(getEditHistory(msgStore, "follow_up", "email")).toHaveLength(1);
     expect(getEditHistory(msgStore, "quote_request", "email")).toHaveLength(1);
@@ -102,7 +102,7 @@ describe("edit memory", () => {
   it("caps at limit (default 10)", () => {
     const { msgStore, cleanup } = makeStore();
     for (let i = 0; i < 15; i++) {
-      msgStore.save_message(makeMsg({ intent: "follow_up", editDistance: 1, originalDraft: `D${i}`, body: `E${i}`, sentAt: new Date(Date.now() + i * 1000).toISOString() }));
+      msgStore.saveMessage(makeMsg({ intent: "follow_up", editDistance: 1, originalDraft: `D${i}`, body: `E${i}`, sentAt: new Date(Date.now() + i * 1000).toISOString() }));
     }
     expect(getEditHistory(msgStore, "follow_up", "email")).toHaveLength(10);
     cleanup();
@@ -110,7 +110,7 @@ describe("edit memory", () => {
 
   it("prompt section includes examples when available", () => {
     const { msgStore, cleanup } = makeStore();
-    msgStore.save_message(makeMsg({ intent: "follow_up", editDistance: 2, originalDraft: "Dumont wrote this", body: "Broker sent this" }));
+    msgStore.saveMessage(makeMsg({ intent: "follow_up", editDistance: 2, originalDraft: "Dumont wrote this", body: "Broker sent this" }));
 
     const section = buildEditMemoryPromptSection(msgStore, "follow_up", "email");
     expect(section).toContain("STYLE LEARNING");
@@ -318,7 +318,7 @@ describe("respond capability", () => {
 
   it("system prompt includes edit memory when available", () => {
     const { msgStore, cleanup } = makeStore();
-    msgStore.save_message(makeMsg({ intent: "follow_up", editDistance: 2, originalDraft: "Dumont wrote", body: "Broker fixed" }));
+    msgStore.saveMessage(makeMsg({ intent: "follow_up", editDistance: 2, originalDraft: "Dumont wrote", body: "Broker fixed" }));
 
     const prompt = buildRespondSystemPrompt("follow_up", "email", msgStore);
     expect(prompt).toContain("STYLE LEARNING");

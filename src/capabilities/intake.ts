@@ -391,6 +391,31 @@ export function extractSpecialRequirements(text: string): string[] {
   return reqs;
 }
 
+// ── Input Sanitization (defense in depth) ────────────────────────────────
+
+/**
+ * Strip common prompt injection patterns before passing to LLM.
+ * Not bulletproof — raises the bar for injection attacks.
+ * The LLM is instructed to return structured JSON only, which limits
+ * the attack surface further.
+ */
+export function sanitizeInput(raw: string): string {
+  let sanitized = raw;
+  // Remove instruction override patterns
+  sanitized = sanitized.replace(/ignore\s+(previous|above|all|prior)\s+(instructions?|context|prompts?|rules?)/gi, "");
+  // Remove role impersonation
+  sanitized = sanitized.replace(/^(system|assistant|human|user)\s*:/gim, "");
+  // Remove markdown code fences that could contain instruction overrides
+  sanitized = sanitized.replace(/```[\s\S]*?```/g, "");
+  // Remove XML-style tags that mimic system messages
+  sanitized = sanitized.replace(/<\/?(?:system|instructions?|prompt|context|rules?)\b[^>]*>/gi, "");
+  // Remove "you are now" role reassignment
+  sanitized = sanitized.replace(/you\s+are\s+now\b/gi, "");
+  // Remove "do not" + action verbs targeting the system
+  sanitized = sanitized.replace(/do\s+not\s+(?:follow|obey|listen|respond|parse|validate|check)/gi, "");
+  return sanitized.trim();
+}
+
 // ── Parsed Request (intermediate) ────────────────────────────────────────
 
 export interface ParsedRequest {
@@ -615,7 +640,8 @@ export async function intake(
   // If code layer missed departure, arrival, date, or pax, try LLM
   const missingCritical = !parsed.departure || !parsed.arrival || !parsed.date || !parsed.pax;
   if (missingCritical && llmParser) {
-    const llmResult = await llmParser(rawRequest);
+    const sanitized = sanitizeInput(rawRequest);
+    const llmResult = await llmParser(sanitized);
     if (llmResult) {
       parsed = mergeLlmResult(parsed, llmResult);
     }

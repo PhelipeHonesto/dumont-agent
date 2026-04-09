@@ -146,7 +146,10 @@ export class BlandAiClient {
    * @returns True if the signature is valid.
    */
   verifyWebhook(payload: string, signature: string): boolean {
-    if (!this.webhookSecret) return true; // No secret configured — allow all
+    if (!this.webhookSecret) {
+      console.warn("[security] Bland AI webhook secret not configured — rejecting unverified request");
+      return false;
+    }
     const expected = createHmac("sha256", this.webhookSecret)
       .update(payload)
       .digest("hex");

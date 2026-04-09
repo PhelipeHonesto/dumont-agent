@@ -211,7 +211,7 @@ export function runMigrations(db: Database.Database): void {
   db.exec(MIGRATIONS[0]!.sql);
 
   const applied = new Set(
-    db.prepare("SELECT id FROM _migrations").all().map((r: any) => r.id),
+    db.prepare("SELECT id FROM _migrations").all().map((r) => (r as { id: number }).id),
   );
 
   for (const migration of MIGRATIONS) {

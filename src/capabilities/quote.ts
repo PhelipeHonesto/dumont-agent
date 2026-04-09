@@ -119,7 +119,9 @@ export async function quote(
   _ctx: DealContext,
   input: QuoteInput,
 ): Promise<QuoteResult> {
-  const margin = input.margin ?? MARGIN_POLICY.target;
+  const rawMargin = input.margin ?? MARGIN_POLICY.target;
+  // Hard bounds: prevent division by zero (margin=1.0), negative prices, and Infinity
+  const margin = Math.max(0.01, Math.min(rawMargin, 0.50));
   const validityMinutes = input.validityMinutes ?? QUOTE_VALIDITY.defaultMinutes;
 
   // OSA price formula per spec: operatorPrice / (1 - margin%)

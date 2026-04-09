@@ -172,11 +172,12 @@ describe("quote edge cases", () => {
     expect(result.quote.osaPrice).toBe(0); // 0 / (1 - 0.08) = 0
   });
 
-  it("handles very small margin (near zero)", async () => {
+  it("clamps very small margin to 1% floor", async () => {
     const ctx = createDealContext("sim");
     const result = await quote(ctx, { operatorPrice: 28000, margin: 0.001 });
-    expect(result.quote.osaPrice).toBe(Math.round(28000 / 0.999));
-    expect(result.quote.margin).toBe(0.001);
+    // margin clamped to 0.01 minimum → $28,000 / 0.99 = $28,283
+    expect(result.quote.osaPrice).toBe(Math.round(28000 / 0.99));
+    expect(result.quote.margin).toBe(0.01);
   });
 
   it("calcEstimateDelta handles identical low and high", () => {

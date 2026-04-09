@@ -415,7 +415,7 @@ function updateClientProfile(
 
   const dealHistory = allClientDeals.slice(-20).map((r) => ({
     route: `${r.route.departure}-${r.route.arrival}`,
-    price: r.osaPrice ?? 0,
+    price: Math.round((r.osaPrice ?? 0) * 100), // cents — matches total_spend_cents column convention
     date: r.timestamp.slice(0, 10),
     outcome: r.result,
   }));
@@ -509,6 +509,10 @@ function appendValidationLedger(
  * Build a DealRecord and persist it to the DealStore.
  * Also updates composite objects (RouteIntel, OperatorProfile, ClientProfile,
  * ValidationLedger) if stores are provided.
+ *
+ * All writes (deal + composites) run inside a single SQLite transaction.
+ * If any write fails, everything rolls back — no partial state.
+ *
  * Returns the record for inspection/logging.
  */
 export function recordDeal(
@@ -517,16 +521,14 @@ export function recordDeal(
   options: RecordDealOptions,
 ): DealRecord {
   const record = buildDealRecord(ctx, options);
-  dealStore.add(record);
-
-  if (options.notes) ctx.outcome.notes = options.notes;
-
-  // Update composite objects if stores are provided.
-  // Wrapped in try/catch — composite updates are best-effort.
-  // A store write failure should not crash the deal pipeline.
   const stores = options.compositeStores;
-  if (stores) {
-    try {
+
+  // Wrap all writes in a single transaction — atomic all-or-nothing
+  const db = dealStore.getDatabase();
+  const runInTransaction = db.transaction(() => {
+    dealStore.add(record);
+
+    if (stores) {
       if (stores.routeIntel) {
         updateRouteIntel(ctx, record, dealStore, stores.routeIntel);
       }
@@ -539,12 +541,12 @@ export function recordDeal(
       if (stores.validationLedger) {
         appendValidationLedger(ctx, record, stores.validationLedger);
       }
-    } catch (err) {
-      console.warn(
-        `[learning-loop] Composite store update failed for deal ${ctx.id}: ${err instanceof Error ? err.message : String(err)}`,
-      );
     }
-  }
+  });
+
+  runInTransaction();
+
+  if (options.notes) ctx.outcome.notes = options.notes;
 
   return record;
 }

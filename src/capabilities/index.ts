@@ -14,6 +14,7 @@ export {
   extractContact,
   extractSpecialRequirements,
   isRoundTrip,
+  sanitizeInput,
   CITY_TO_ICAO,
   LlmIntakeOutputSchema,
   INTAKE_SYSTEM_PROMPT,
@@ -45,3 +46,15 @@ export {
 } from "./sourcing.js";
 export { scenario, buildPresentation, checkTimer, determineBackupAction, ScenarioError } from "./scenario.js";
 export type { QuotePresentation, TimerAlertLevel, TimerStatus, BackupAction } from "./scenario.js";
+
+export { respond, buildRespondSystemPrompt } from "./respond.js";
+export type { RespondOptions, DraftResult } from "./respond.js";
+
+export { evaluateDraft, summarizeDealForEval } from "./draft-evaluator.js";
+export type { EvaluationResult, EvaluatorFn, ReviserFn, EvaluatorContext, EvaluateDraftOptions } from "./draft-evaluator.js";
+
+export { classifyLead } from "./sdr.js";
+export type { SDRClassification, SDRResult } from "./sdr.js";
+
+export { extractPrice, processChunk, extractAllEntities, generateSummary } from "./transcript-processor.js";
+export type { SummaryOptions } from "./transcript-processor.js";

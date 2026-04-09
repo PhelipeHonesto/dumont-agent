@@ -28,6 +28,74 @@ function isStale(lastUpdated: string): boolean {
   return Date.now() - new Date(lastUpdated).getTime() > TTL_MS;
 }
 
+// ── SQLite Row Interfaces ───────────────────────────────────────────────
+
+interface RouteIntelRow {
+  route: string;
+  aircraft_class: string;
+  avg_price_30d_cents: number | null;
+  deal_count: number;
+  demand_trend: string;
+  top_operators: string;
+  seasonal_factor: number;
+  avg_margin_delta: number;
+  last_updated: string;
+}
+
+interface OperatorProfileRow {
+  name: string;
+  home_base: string;
+  certs: string;
+  fleet: string;
+  avg_response_time: number;
+  reliability_score: number;
+  pricing_delta: number;
+  payment_speed: number;
+  quote_to_book_rate: number;
+  cancel_rate: number;
+  deal_count: number;
+  last_updated: string;
+}
+
+interface ClientProfileRow {
+  rowid: number;
+  name: string;
+  email: string;
+  deal_history: string;
+  avg_payment_time: number;
+  total_spend_cents: number;
+  trip_frequency: number;
+  preferred_aircraft_class: string | null;
+  preferred_routes: string;
+  last_updated: string;
+}
+
+interface ValidationLedgerRow {
+  id: number;
+  route: string;
+  date: string;
+  mode: string;
+  lead_time_hours: number;
+  rli_at_quote: string;
+  dumont_physics_estimate_cents: number | null;
+  ghost_positioning_value: number | null;
+  operator_quoted_price_cents: number | null;
+  osa_client_price_cents: number | null;
+  realized_margin_pct: number | null;
+  rfqs_sent: number;
+  quotes_received: number;
+  operator_response_minutes: number | null;
+  client_decision_minutes: number | null;
+  outcome: string;
+  fleet_resilience_used: number;
+  trip_completed: number | null;
+  notes: string;
+}
+
+interface CountRow {
+  cnt: number;
+}
+
 // ── Dollar ↔ Cents helpers ──────────────────────────────────────────────
 
 function toCents(dollars: number | null): number | null {
@@ -47,13 +115,13 @@ export class RouteIntelStore {
     this.db = typeof pathOrDb === "object" && pathOrDb !== null ? pathOrDb : getDb(pathOrDb);
   }
 
-  private rowToRouteIntel(row: any): RouteIntel {
+  private rowToRouteIntel(row: RouteIntelRow): RouteIntel {
     return {
       route: row.route,
-      aircraftClass: row.aircraft_class,
+      aircraftClass: row.aircraft_class as RouteIntel["aircraftClass"],
       avgPrice30d: toDollars(row.avg_price_30d_cents),
       dealCount: row.deal_count,
-      demandTrend: row.demand_trend,
+      demandTrend: row.demand_trend as RouteIntel["demandTrend"],
       topOperators: JSON.parse(row.top_operators || "[]"),
       seasonalFactor: row.seasonal_factor,
       avgMarginDelta: row.avg_margin_delta,
@@ -64,7 +132,7 @@ export class RouteIntelStore {
   get(route: string, aircraftClass: string): RouteIntel | null {
     const row = this.db.prepare(
       "SELECT * FROM route_intel WHERE route = ? AND aircraft_class = ?",
-    ).get(route, aircraftClass) as any;
+    ).get(route, aircraftClass) as RouteIntelRow | undefined;
     if (!row) return null;
     const intel = this.rowToRouteIntel(row);
     if (isStale(intel.lastUpdated)) return null;
@@ -74,7 +142,7 @@ export class RouteIntelStore {
   getIncludingStale(route: string, aircraftClass: string): RouteIntel | null {
     const row = this.db.prepare(
       "SELECT * FROM route_intel WHERE route = ? AND aircraft_class = ?",
-    ).get(route, aircraftClass) as any;
+    ).get(route, aircraftClass) as RouteIntelRow | undefined;
     return row ? this.rowToRouteIntel(row) : null;
   }
 
@@ -98,11 +166,11 @@ export class RouteIntelStore {
   }
 
   getAll(): RouteIntel[] {
-    return this.db.prepare("SELECT * FROM route_intel").all().map((r: any) => this.rowToRouteIntel(r));
+    return this.db.prepare("SELECT * FROM route_intel").all().map((r) => this.rowToRouteIntel(r as RouteIntelRow));
   }
 
   get count(): number {
-    const row = this.db.prepare("SELECT COUNT(*) as cnt FROM route_intel").get() as any;
+    const row = this.db.prepare("SELECT COUNT(*) as cnt FROM route_intel").get() as CountRow | undefined;
     return row?.cnt ?? 0;
   }
 }
@@ -116,7 +184,7 @@ export class OperatorProfileStore {
     this.db = typeof pathOrDb === "object" && pathOrDb !== null ? pathOrDb : getDb(pathOrDb);
   }
 
-  private rowToProfile(row: any): OperatorProfile {
+  private rowToProfile(row: OperatorProfileRow): OperatorProfile {
     return {
       name: row.name,
       homeBase: row.home_base,
@@ -134,7 +202,7 @@ export class OperatorProfileStore {
   }
 
   get(name: string): OperatorProfile | null {
-    const row = this.db.prepare("SELECT * FROM operator_profiles WHERE name = ?").get(name) as any;
+    const row = this.db.prepare("SELECT * FROM operator_profiles WHERE name = ?").get(name) as OperatorProfileRow | undefined;
     if (!row) return null;
     const profile = this.rowToProfile(row);
     if (isStale(profile.lastUpdated)) return null;
@@ -142,7 +210,7 @@ export class OperatorProfileStore {
   }
 
   getIncludingStale(name: string): OperatorProfile | null {
-    const row = this.db.prepare("SELECT * FROM operator_profiles WHERE name = ?").get(name) as any;
+    const row = this.db.prepare("SELECT * FROM operator_profiles WHERE name = ?").get(name) as OperatorProfileRow | undefined;
     return row ? this.rowToProfile(row) : null;
   }
 
@@ -167,11 +235,11 @@ export class OperatorProfileStore {
   }
 
   getAll(): OperatorProfile[] {
-    return this.db.prepare("SELECT * FROM operator_profiles").all().map((r: any) => this.rowToProfile(r));
+    return this.db.prepare("SELECT * FROM operator_profiles").all().map((r) => this.rowToProfile(r as OperatorProfileRow));
   }
 
   get count(): number {
-    const row = this.db.prepare("SELECT COUNT(*) as cnt FROM operator_profiles").get() as any;
+    const row = this.db.prepare("SELECT COUNT(*) as cnt FROM operator_profiles").get() as CountRow | undefined;
     return row?.cnt ?? 0;
   }
 }
@@ -185,7 +253,7 @@ export class ClientProfileStore {
     this.db = typeof pathOrDb === "object" && pathOrDb !== null ? pathOrDb : getDb(pathOrDb);
   }
 
-  private rowToProfile(row: any): ClientProfile {
+  private rowToProfile(row: ClientProfileRow): ClientProfile {
     return {
       name: row.name,
       email: row.email,
@@ -193,7 +261,7 @@ export class ClientProfileStore {
       avgPaymentTime: row.avg_payment_time,
       totalSpend: toDollars(row.total_spend_cents) ?? 0,
       tripFrequency: row.trip_frequency,
-      preferredAircraftClass: row.preferred_aircraft_class,
+      preferredAircraftClass: row.preferred_aircraft_class as ClientProfile["preferredAircraftClass"],
       preferredRoutes: JSON.parse(row.preferred_routes || "[]"),
       lastUpdated: row.last_updated,
     };
@@ -204,22 +272,22 @@ export class ClientProfileStore {
     const needle = nameOrEmail.toLowerCase().trim();
     const row = this.db.prepare(
       "SELECT * FROM client_profiles WHERE LOWER(name) = ? OR LOWER(email) = ?",
-    ).get(needle, needle) as any;
+    ).get(needle, needle) as ClientProfileRow | undefined;
     return row ? this.rowToProfile(row) : null;
   }
 
   upsert(profile: ClientProfile): void {
     // Try to find existing by email (primary) or name (secondary)
-    let existing: any = null;
+    let existing: { rowid: number } | undefined = undefined;
     if (profile.email) {
       existing = this.db.prepare(
         "SELECT rowid FROM client_profiles WHERE LOWER(email) = ?",
-      ).get(profile.email.toLowerCase()) as any;
+      ).get(profile.email.toLowerCase()) as { rowid: number } | undefined;
     }
     if (!existing && profile.name) {
       existing = this.db.prepare(
         "SELECT rowid FROM client_profiles WHERE LOWER(name) = ?",
-      ).get(profile.name.toLowerCase()) as any;
+      ).get(profile.name.toLowerCase()) as { rowid: number } | undefined;
     }
 
     if (existing) {
@@ -253,11 +321,11 @@ export class ClientProfileStore {
   }
 
   getAll(): ClientProfile[] {
-    return this.db.prepare("SELECT * FROM client_profiles").all().map((r: any) => this.rowToProfile(r));
+    return this.db.prepare("SELECT * FROM client_profiles").all().map((r) => this.rowToProfile(r as ClientProfileRow));
   }
 
   get count(): number {
-    const row = this.db.prepare("SELECT COUNT(*) as cnt FROM client_profiles").get() as any;
+    const row = this.db.prepare("SELECT COUNT(*) as cnt FROM client_profiles").get() as CountRow | undefined;
     return row?.cnt ?? 0;
   }
 }
@@ -271,13 +339,13 @@ export class ValidationLedgerStore {
     this.db = typeof pathOrDb === "object" && pathOrDb !== null ? pathOrDb : getDb(pathOrDb);
   }
 
-  private rowToEntry(row: any): ValidationLedgerEntry {
+  private rowToEntry(row: ValidationLedgerRow): ValidationLedgerEntry {
     return {
       route: row.route,
       date: row.date,
-      mode: row.mode,
+      mode: row.mode as ValidationLedgerEntry["mode"],
       leadTimeHours: row.lead_time_hours,
-      rliAtQuote: row.rli_at_quote,
+      rliAtQuote: row.rli_at_quote as ValidationLedgerEntry["rliAtQuote"],
       dumontPhysicsEstimate: toDollars(row.dumont_physics_estimate_cents),
       ghostPositioningValue: row.ghost_positioning_value,
       operatorQuotedPrice: toDollars(row.operator_quoted_price_cents),
@@ -287,7 +355,7 @@ export class ValidationLedgerStore {
       quotesReceived: row.quotes_received,
       operatorResponseMinutes: row.operator_response_minutes,
       clientDecisionMinutes: row.client_decision_minutes,
-      outcome: row.outcome,
+      outcome: row.outcome as ValidationLedgerEntry["outcome"],
       fleetResilienceUsed: Boolean(row.fleet_resilience_used),
       tripCompleted: row.trip_completed === null ? null : Boolean(row.trip_completed),
       notes: row.notes,
@@ -319,28 +387,28 @@ export class ValidationLedgerStore {
   getByRoute(route: string): ValidationLedgerEntry[] {
     return this.db.prepare(
       "SELECT * FROM validation_ledger WHERE route = ? ORDER BY date",
-    ).all(route).map((r: any) => this.rowToEntry(r));
+    ).all(route).map((r) => this.rowToEntry(r as ValidationLedgerRow));
   }
 
   getBooked(): ValidationLedgerEntry[] {
     return this.db.prepare(
       "SELECT * FROM validation_ledger WHERE outcome = 'booked' ORDER BY date",
-    ).all().map((r: any) => this.rowToEntry(r));
+    ).all().map((r) => this.rowToEntry(r as ValidationLedgerRow));
   }
 
   getByDateRange(from: string, to: string): ValidationLedgerEntry[] {
     return this.db.prepare(
       "SELECT * FROM validation_ledger WHERE date >= ? AND date <= ? ORDER BY date",
-    ).all(from, to).map((r: any) => this.rowToEntry(r));
+    ).all(from, to).map((r) => this.rowToEntry(r as ValidationLedgerRow));
   }
 
   getAll(): ValidationLedgerEntry[] {
     return this.db.prepare("SELECT * FROM validation_ledger ORDER BY id").all()
-      .map((r: any) => this.rowToEntry(r));
+      .map((r) => this.rowToEntry(r as ValidationLedgerRow));
   }
 
   get count(): number {
-    const row = this.db.prepare("SELECT COUNT(*) as cnt FROM validation_ledger").get() as any;
+    const row = this.db.prepare("SELECT COUNT(*) as cnt FROM validation_ledger").get() as CountRow | undefined;
     return row?.cnt ?? 0;
   }
 }

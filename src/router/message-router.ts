@@ -96,8 +96,12 @@ export async function routeMessage(
   // ── Step 3: Run extractors on EVERY inbound ────────────────────────
   const updatedFields: string[] = [];
   if (msg.direction === "inbound") {
-    const extracted = runExtractors(msg.body, deal);
-    updatedFields.push(...extracted);
+    const patch = runExtractors(msg.body, deal);
+    // Apply patch through proper channel — not direct mutation
+    if (patch.trip) Object.assign(deal.trip, patch.trip);
+    if (patch.client) Object.assign(deal.client, patch.client);
+    if (patch.fields.length > 0) deal.updatedAt = new Date().toISOString();
+    updatedFields.push(...patch.fields);
   }
 
   // ── Step 4: Classify intent ────────────────────────────────────────
@@ -122,51 +126,61 @@ export async function routeMessage(
 // ── Extractors (re-run on every inbound) ─────────────────────────────────
 
 /**
- * Re-run intake extractors on a message body. Updates deal fields if new
- * data is found that the deal doesn't already have.
- * Returns list of fields that were updated.
+ * Extract patch of new data from a message body.
+ * Returns a patch object + list of fields that would be updated.
+ * Does NOT mutate the deal — caller applies the patch via updateDealContext.
  */
-function runExtractors(body: string, deal: DealContext): string[] {
-  const updated: string[] = [];
+export interface ExtractorPatch {
+  trip?: Partial<DealContext["trip"]>;
+  client?: Partial<DealContext["client"]>;
+  fields: string[];
+}
+
+function runExtractors(body: string, deal: DealContext): ExtractorPatch {
+  const patch: ExtractorPatch = { fields: [] };
+  const tripPatch: Partial<DealContext["trip"]> = {};
+  const clientPatch: Partial<DealContext["client"]> = {};
 
   // Pax update
   const pax = extractPax(body);
   if (pax && pax !== deal.trip.pax && pax > 0) {
-    deal.trip.pax = pax;
-    updated.push("pax");
+    tripPatch.pax = pax;
+    patch.fields.push("pax");
   }
 
   // Budget (only fill if currently null)
   if (!deal.client.budget) {
     const budget = extractBudget(body);
     if (budget) {
-      deal.client.budget = budget;
-      updated.push("budget");
+      clientPatch.budget = budget;
+      patch.fields.push("budget");
     }
   }
 
   // Route (only fill missing endpoints)
   const [dep, arr] = extractRoute(body);
   if (dep && !deal.trip.departure) {
-    deal.trip.departure = dep;
-    updated.push("departure");
+    tripPatch.departure = dep;
+    patch.fields.push("departure");
   }
   if (arr && !deal.trip.arrival) {
-    deal.trip.arrival = arr;
-    updated.push("arrival");
+    tripPatch.arrival = arr;
+    patch.fields.push("arrival");
   }
 
   // Aircraft class (only fill if null)
   if (!deal.trip.aircraftClass) {
     const cls = extractAircraftClass(body);
     if (cls) {
-      deal.trip.aircraftClass = cls;
-      updated.push("aircraftClass");
+      tripPatch.aircraftClass = cls;
+      patch.fields.push("aircraftClass");
     }
   }
 
-  deal.updatedAt = new Date().toISOString();
-  return updated;
+  if (Object.keys(tripPatch).length > 0) patch.trip = tripPatch;
+  if (Object.keys(clientPatch).length > 0) patch.client = clientPatch;
+
+  return patch;
 }
 
 // ── Action determination ─────────────────────────────────────────────────

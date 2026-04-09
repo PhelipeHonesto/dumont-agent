@@ -176,11 +176,12 @@ export function regressStage(ctx: DealContext, to: DealStage, reason: string): v
     current.duration = Date.now() - new Date(current.timestamp).getTime();
   }
 
-  // Log regression as a special history entry (reason encoded in stage label)
+  // Log regression as a typed history entry
   ctx.stageHistory.push({
-    stage: `regression:${from}→${to}` as DealStage,
+    stage: to,
     timestamp: now,
     duration: 0,
+    regression: { from, to, reason },
   });
 
   // Store reason in outcome notes (append, don't overwrite)

@@ -33,6 +33,16 @@ export type DealEventType =
   | "deal_closed"
   | "deal_lost";
 
+interface DealEventRow {
+  id: number;
+  deal_id: string;
+  stage: string;
+  event_type: string;
+  payload: string | null;
+  created_at: string;
+  schema_version: number;
+}
+
 export class DealEventLog {
   private readonly db: Database.Database;
 
@@ -62,31 +72,31 @@ export class DealEventLog {
   getEvents(dealId: string): DealEvent[] {
     return this.db.prepare(
       "SELECT * FROM deal_events WHERE deal_id = ? ORDER BY id",
-    ).all(dealId).map(this.rowToEvent);
+    ).all(dealId).map((r) => this.rowToEvent(r as DealEventRow));
   }
 
   /** Get events of a specific type across all deals. */
   getEventsByType(eventType: string, limit: number = 100): DealEvent[] {
     return this.db.prepare(
       "SELECT * FROM deal_events WHERE event_type = ? ORDER BY id DESC LIMIT ?",
-    ).all(eventType, limit).map(this.rowToEvent);
+    ).all(eventType, limit).map((r) => this.rowToEvent(r as DealEventRow));
   }
 
   /** Count events for a deal. */
   getEventCount(dealId: string): number {
     const row = this.db.prepare(
       "SELECT COUNT(*) as cnt FROM deal_events WHERE deal_id = ?",
-    ).get(dealId) as any;
+    ).get(dealId) as { cnt: number } | undefined;
     return row?.cnt ?? 0;
   }
 
   /** Total event count across all deals. */
   get count(): number {
-    const row = this.db.prepare("SELECT COUNT(*) as cnt FROM deal_events").get() as any;
+    const row = this.db.prepare("SELECT COUNT(*) as cnt FROM deal_events").get() as { cnt: number } | undefined;
     return row?.cnt ?? 0;
   }
 
-  private rowToEvent(row: any): DealEvent {
+  private rowToEvent(row: DealEventRow): DealEvent {
     return {
       id: row.id,
       dealId: row.deal_id,
