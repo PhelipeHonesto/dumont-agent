@@ -11,7 +11,7 @@ built with ruvnet's SPARC spec-first methodology and Ruflo-inspired orchestratio
 
 ## Current State (April 3, 2026)
 
-- **510 tests passing** across 16 test files, **0 type errors** (Vitest + TSC strict)
+- **656 tests passing** across 20 test files, **0 type errors** (Vitest + TSC strict)
 - **Engine complete**: Intake, Guardian, Quote (estimate + real), Sourcing, Scenario, Learning Loop, Orchestrator
 - **Communication layer complete**: 7 sprints — schemas, router, 4 channel adapters, voice copilot, respond capability, stage regression
 - **Dashboard**: `dashboard/` (Vite + React, port 5174) — 74.2 KB gzip, 5 tabs + command bar, PWA-enabled
@@ -167,7 +167,7 @@ dumont-agent/
 │   │   └── sim-data.ts
 │   ├── config.ts                 ← models, timeouts, margin policy, quote validity
 │   └── run-sim.ts                ← scenario runner CLI
-├── tests/                        ← 510 tests across 16 files
+├── tests/                        ← 658 tests across 20 files
 │   ├── deal-context.test.ts      ← 12 tests
 │   ├── guardian.test.ts          ← 52 tests
 │   ├── intake.test.ts            ← 68 tests
@@ -240,7 +240,7 @@ dumont-agent/
 ## Commands
 
 ```bash
-# Run all tests (510 tests)
+# Run all tests (656 tests)
 npm test
 
 # Run scenario simulation (25 scenarios, 92% pass rate)

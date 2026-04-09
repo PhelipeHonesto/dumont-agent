@@ -25,9 +25,7 @@ import type { DealRecord } from "../src/schemas/deal-record.js";
 import type { DealContext } from "../src/schemas/deal-context.js";
 import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
 import { MARGIN_POLICY, QUOTE_VALIDITY } from "../src/config.js";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { createTestDb } from "../src/memory/database.js";
 
 // ── Test Helpers ──────────────────────────────────────────────────────────
 
@@ -87,13 +85,12 @@ function makeDealCtx(overrides?: {
   return ctx;
 }
 
-/** Create a DealStore backed by a temp file with historical deals. */
+/** Create a DealStore backed by an in-memory SQLite database with historical deals. */
 function makeStoreWithDeals(records: DealRecord[]): { store: DealStore; cleanup: () => void } {
-  const tmpDir = mkdtempSync(join(tmpdir(), "dumont-quote-test-"));
-  const storePath = join(tmpDir, "deals.json");
-  writeFileSync(storePath, JSON.stringify(records));
-  const store = new DealStore(storePath);
-  return { store, cleanup: () => rmSync(tmpDir, { recursive: true }) };
+  const db = createTestDb();
+  const store = new DealStore(db);
+  for (const r of records) store.add(r);
+  return { store, cleanup: () => db.close() };
 }
 
 /** Make a historical deal record for pricing delta tests. */

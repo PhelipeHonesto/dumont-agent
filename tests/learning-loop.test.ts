@@ -25,9 +25,8 @@ import type { PipelineResult, PipelineHooks } from "../src/orchestrator/index.js
 import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
 import { advanceStage } from "../src/orchestrator/stage-transitions.js";
 import type { DealContext } from "../src/schemas/deal-context.js";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { createTestDb } from "../src/memory/database.js";
+import type Database from "better-sqlite3";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -36,11 +35,9 @@ const AIRPORTS: Map<string, AirportCoords> = new Map([
   ["KPBI", { icao: "KPBI", latitude: 26.6832, longitude: -80.0956 }],
 ]);
 
-function makeStore(): { store: DealStore; path: string; cleanup: () => void } {
-  const tmpDir = mkdtempSync(join(tmpdir(), "dumont-loop-test-"));
-  const storePath = join(tmpDir, "deals.json");
-  writeFileSync(storePath, "[]");
-  return { store: new DealStore(storePath), path: storePath, cleanup: () => rmSync(tmpDir, { recursive: true }) };
+function makeStore(): { store: DealStore; cleanup: () => void } {
+  const db = createTestDb();
+  return { store: new DealStore(db), cleanup: () => db.close() };
 }
 
 function makeClosedDealCtx(): DealContext {

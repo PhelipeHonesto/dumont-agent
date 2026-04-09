@@ -27,9 +27,7 @@ import type { OperatorCertData } from "../src/capabilities/guardian.js";
 import { DealStore } from "../src/memory/deal-store.js";
 import type { DealRecord } from "../src/schemas/deal-record.js";
 import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { createTestDb } from "../src/memory/database.js";
 
 // ── Test Fixtures ─────────────────────────────────────────────────────────
 
@@ -95,10 +93,10 @@ function makeDealCtx(overrides?: { pax?: number; aircraftClass?: string | null }
 }
 
 function makeStoreWithDeals(records: DealRecord[]): { store: DealStore; cleanup: () => void } {
-  const tmpDir = mkdtempSync(join(tmpdir(), "dumont-sourcing-test-"));
-  const storePath = join(tmpDir, "deals.json");
-  writeFileSync(storePath, JSON.stringify(records));
-  return { store: new DealStore(storePath), cleanup: () => rmSync(tmpDir, { recursive: true }) };
+  const db = createTestDb();
+  const store = new DealStore(db);
+  for (const r of records) store.add(r);
+  return { store, cleanup: () => db.close() };
 }
 
 function makeDealRecord(overrides: Partial<DealRecord> = {}): DealRecord {

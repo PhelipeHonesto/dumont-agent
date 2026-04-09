@@ -9,14 +9,11 @@
  */
 
 import type { DealContext, DealMode } from "../schemas/deal-context.js";
-
-let dealCounter = 0;
+import { ulid } from "ulid";
 
 function generateDealId(mode: DealMode): string {
-  dealCounter++;
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const seq = String(dealCounter).padStart(3, "0");
-  return `${mode === "sim" ? "SIM" : "LIVE"}_${date}_${seq}`;
+  const prefix = mode === "sim" ? "SIM" : "LIVE";
+  return `${prefix}_${ulid()}`;
 }
 
 /**
@@ -132,7 +129,7 @@ export function snapshotContext(ctx: DealContext): DealContext {
   return structuredClone(ctx);
 }
 
-/** Reset deal counter (for testing). */
+/** No-op — kept for backwards compatibility with tests. ULIDs are globally unique. */
 export function _resetDealCounter(): void {
-  dealCounter = 0;
+  // ULIDs don't need resetting — they're globally unique by design.
 }

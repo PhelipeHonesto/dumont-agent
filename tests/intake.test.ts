@@ -34,9 +34,7 @@ import { createDealContext } from "../src/orchestrator/deal-context-manager.js";
 import { _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
 import { DealStore } from "../src/memory/deal-store.js";
 import type { DealRecord } from "../src/schemas/deal-record.js";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { createTestDb } from "../src/memory/database.js";
 
 // ── Test Fixtures ─────────────────────────────────────────────────────────
 
@@ -474,14 +472,6 @@ describe("qualify", () => {
 // ── Repeat Client Detection ──────────────────────────────────────────────
 
 describe("detectRepeatClient", () => {
-  let tmpDir: string;
-  let storePath: string;
-
-  beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "dumont-test-"));
-    storePath = join(tmpDir, "deals.json");
-  });
-
   function makeRecord(overrides: Partial<DealRecord> = {}): DealRecord {
     return {
       id: "deal_001",
@@ -515,10 +505,15 @@ describe("detectRepeatClient", () => {
     };
   }
 
+  function makeStoreWithRecords(records: DealRecord[]): { store: DealStore; cleanup: () => void } {
+    const db = createTestDb();
+    const store = new DealStore(db);
+    for (const r of records) store.add(r);
+    return { store, cleanup: () => db.close() };
+  }
+
   it("detects repeat client by name", () => {
-    const records = [makeRecord()];
-    writeFileSync(storePath, JSON.stringify(records));
-    const store = new DealStore(storePath);
+    const { store, cleanup } = makeStoreWithRecords([makeRecord()]);
 
     const parsed: ParsedRequest = {
       departure: "KTEB", arrival: "KPBI", date: "2026-05-10", pax: 4,
@@ -532,13 +527,11 @@ describe("detectRepeatClient", () => {
     expect(result.lastAircraftClass).toBe("light");
     expect(result.lastBudget).toEqual({ min: 25000, max: 35000 });
 
-    rmSync(tmpDir, { recursive: true });
+    cleanup();
   });
 
   it("detects repeat client by email", () => {
-    const records = [makeRecord()];
-    writeFileSync(storePath, JSON.stringify(records));
-    const store = new DealStore(storePath);
+    const { store, cleanup } = makeStoreWithRecords([makeRecord()]);
 
     const parsed: ParsedRequest = {
       departure: "KTEB", arrival: "KPBI", date: "2026-05-10", pax: 4,
@@ -549,13 +542,11 @@ describe("detectRepeatClient", () => {
     const result = detectRepeatClient(parsed, store);
     expect(result.isRepeat).toBe(true);
 
-    rmSync(tmpDir, { recursive: true });
+    cleanup();
   });
 
   it("returns not-repeat for unknown client", () => {
-    const records = [makeRecord()];
-    writeFileSync(storePath, JSON.stringify(records));
-    const store = new DealStore(storePath);
+    const { store, cleanup } = makeStoreWithRecords([makeRecord()]);
 
     const parsed: ParsedRequest = {
       departure: "KTEB", arrival: "KPBI", date: "2026-05-10", pax: 4,
@@ -567,7 +558,7 @@ describe("detectRepeatClient", () => {
     expect(result.isRepeat).toBe(false);
     expect(result.previousDealCount).toBe(0);
 
-    rmSync(tmpDir, { recursive: true });
+    cleanup();
   });
 
   it("returns not-repeat when no deal store", () => {
@@ -586,8 +577,7 @@ describe("detectRepeatClient", () => {
       makeRecord({ id: "deal_001", timestamp: "2026-02-01T10:00:00.000Z", aircraftClass: "light", clientBudget: { min: 20000, max: 30000 } }),
       makeRecord({ id: "deal_002", timestamp: "2026-03-15T10:00:00.000Z", aircraftClass: "midsize", clientBudget: { min: 30000, max: 45000 } }),
     ];
-    writeFileSync(storePath, JSON.stringify(records));
-    const store = new DealStore(storePath);
+    const { store, cleanup } = makeStoreWithRecords(records);
 
     const parsed: ParsedRequest = {
       departure: "KTEB", arrival: "KPBI", date: "2026-05-10", pax: 4,
@@ -601,7 +591,7 @@ describe("detectRepeatClient", () => {
     expect(result.lastAircraftClass).toBe("midsize"); // from the more recent deal
     expect(result.lastBudget).toEqual({ min: 30000, max: 45000 });
 
-    rmSync(tmpDir, { recursive: true });
+    cleanup();
   });
 });
 
@@ -654,10 +644,10 @@ describe("intake (full capability)", () => {
   });
 
   it("detects repeat client and pre-populates from memory", async () => {
-    const tmpDir = mkdtempSync(join(tmpdir(), "dumont-test-"));
-    const storePath = join(tmpDir, "deals.json");
+    const db = createTestDb();
+    const store = new DealStore(db);
 
-    const records: DealRecord[] = [{
+    const record: DealRecord = {
       id: "deal_001",
       timestamp: "2026-03-15T10:00:00.000Z",
       mode: "live",
@@ -685,9 +675,8 @@ describe("intake (full capability)", () => {
       dayOfWeek: 2,
       season: "shoulder",
       guardianFlags: [],
-    }];
-    writeFileSync(storePath, JSON.stringify(records));
-    const store = new DealStore(storePath);
+    };
+    store.add(record);
 
     const ctx = createDealContext("sim");
     const result = await intake(FIXTURES.repeatClientRequest, ctx, {
@@ -700,7 +689,7 @@ describe("intake (full capability)", () => {
     // Budget comes from the request text ($30k)
     expect(result.client.budget).not.toBeNull();
 
-    rmSync(tmpDir, { recursive: true });
+    db.close();
   });
 
   it("fails qualification for vague request", async () => {

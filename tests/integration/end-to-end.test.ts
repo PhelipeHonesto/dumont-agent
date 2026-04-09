@@ -33,6 +33,7 @@ import type { Message } from "../../src/schemas/message.js";
 import { generateMessageId } from "../../src/schemas/message.js";
 import type { DealContext } from "../../src/schemas/deal-context.js";
 import type { TranscriptChunk, Call } from "../../src/schemas/call.js";
+import { createTestDb } from "../../src/memory/database.js";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -41,11 +42,16 @@ beforeEach(() => _resetDealCounter());
 
 // ── Fixture helpers ──────────────────────────────────────────────────────
 
-function tmpStore<T>(Ctor: new (path: string) => T): { store: T; cleanup: () => void } {
+function tmpJsonStore<T>(Ctor: new (path: string) => T): { store: T; cleanup: () => void } {
   const dir = mkdtempSync(join(tmpdir(), "dumont-e2e-"));
   const path = join(dir, "store.json");
   writeFileSync(path, "[]");
   return { store: new Ctor(path), cleanup: () => rmSync(dir, { recursive: true }) };
+}
+
+function tmpDealStore(): { store: DealStore; cleanup: () => void } {
+  const db = createTestDb();
+  return { store: new DealStore(db), cleanup: () => db.close() };
 }
 
 const mockFetch = async () => ({ ok: true, status: 200, json: async () => ({ id: "mock_001", message_id: "mock_001", sid: "mock_sid" }) });
@@ -81,8 +87,8 @@ describe("email inbound → new deal → full pipeline → closed", () => {
   it("processes complete deal lifecycle through email channel", async () => {
     const resend = new ResendClient({ apiKey: "test" }, mockFetch);
     const emailAdapter = new EmailAdapter(resend);
-    const { store: dealStore, cleanup: cleanupDeals } = tmpStore(DealStore);
-    const { store: msgStore, cleanup: cleanupMsgs } = tmpStore(MessageStore);
+    const { store: dealStore, cleanup: cleanupDeals } = tmpDealStore();
+    const { store: msgStore, cleanup: cleanupMsgs } = tmpJsonStore(MessageStore);
 
     // 1. Inbound email arrives
     const webhook: ResendInboundWebhook = {
@@ -291,7 +297,7 @@ describe("voice copilot → entity detection → deal update", () => {
     expect(summary.length).toBeGreaterThan(0);
 
     // Call store
-    const { store: callStore, cleanup } = tmpStore(CallStore);
+    const { store: callStore, cleanup } = tmpJsonStore(CallStore);
     const call: Call = {
       callId: "call_e2e", dealId: "deal_001", direction: "outbound_to_operator",
       participants: [{ name: "Phelipe", role: "broker", phone: "+1-773-555-0100" }, { name: "John", role: "operator", phone: "+1-555-0200" }],
@@ -362,7 +368,7 @@ describe("stage regression through comms layer", () => {
 
 describe("autonomy graduation lifecycle", () => {
   it("graduates after 10 zero-edit approvals, revokes on edit", async () => {
-    const { store: autoStore, cleanup } = tmpStore(AutonomyStore);
+    const { store: autoStore, cleanup } = tmpJsonStore(AutonomyStore);
 
     // Approve 10 follow-ups with 0 edits
     for (let i = 0; i < 10; i++) {

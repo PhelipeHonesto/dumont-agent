@@ -25,6 +25,7 @@ import {
   snapshotContext,
 } from "./deal-context-manager.js";
 import { advanceStage } from "./stage-transitions.js";
+import type { ContextFactoryStores } from "./context-factory.js";
 
 // ── Capability Signatures ────────────────────────────────────────────────
 // Each capability receives a snapshot and returns section data.
@@ -86,6 +87,8 @@ export interface PipelineResult {
 export interface PipelineOptions {
   mode: DealMode;
   capabilities: Capabilities;
+  /** Composite object stores for context-aware pipeline stages. */
+  stores?: ContextFactoryStores;
 }
 
 // ── Pre/Post Hooks (ruvnet pattern) ──────────────────────────────────────
@@ -278,10 +281,11 @@ export async function runPipeline(
 
 import type { DealStore } from "../memory/deal-store.js";
 import type { DealRecord } from "../schemas/deal-record.js";
-import type { DealOutcomeResult } from "../memory/learning-loop.js";
+import type { DealOutcomeResult, CompositeStores } from "../memory/learning-loop.js";
 import type { AirportCoords } from "../memory/learning-loop.js";
 import { recordDeal } from "../memory/learning-loop.js";
 import { calcEstimateDelta } from "../capabilities/quote.js";
+import { evictDealTokenBudget } from "../utils/safe-llm-call.js";
 
 export interface CloseDealOptions {
   /** The deal outcome result. */
@@ -296,6 +300,8 @@ export interface CloseDealOptions {
   notes?: string;
   /** Pipeline hooks. */
   hooks?: PipelineHooks;
+  /** Composite object stores — updated on deal close if provided. */
+  compositeStores?: CompositeStores;
 }
 
 /**
@@ -313,7 +319,7 @@ export function closeDeal(
   ctx: DealContext,
   options: CloseDealOptions,
 ): DealRecord {
-  const { result, dealStore, operatorResponseTime, airports, notes, hooks } = options;
+  const { result, dealStore, operatorResponseTime, airports, notes, hooks, compositeStores } = options;
 
   const isClosed = result === "closed";
 
@@ -362,13 +368,17 @@ export function closeDeal(
 
   ctx.updatedAt = new Date().toISOString();
 
-  // Write to learning loop
+  // Write to learning loop + update composite objects
   const record = recordDeal(ctx, dealStore, {
     result,
     operatorResponseTime,
     airports,
     notes,
+    compositeStores,
   });
+
+  // Evict deal from token budget tracker (prevents memory leak)
+  evictDealTokenBudget(ctx.id);
 
   // Compute estimate delta and store in outcome
   if (ctx.estimate.priceRange && ctx.quote.operatorPrice) {
@@ -391,3 +401,24 @@ export function closeDeal(
 // Re-exports
 export { createDealContext, updateDealContext, snapshotContext } from "./deal-context-manager.js";
 export { advanceStage, isValidTransition, InvalidTransitionError, regressStage, isAllowedRegression } from "./stage-transitions.js";
+export {
+  buildIntakeContext,
+  buildGuardianContext,
+  buildEstimateContext,
+  buildPriceWallContext,
+  buildSourcingContext,
+  buildQuoteContext,
+  buildPresentContext,
+  buildRespondContext,
+} from "./context-factory.js";
+export type {
+  IntakeContext,
+  GuardianContext,
+  EstimateContext,
+  PriceWallContext,
+  SourcingContext,
+  QuoteContext,
+  PresentContext,
+  RespondContext,
+  ContextFactoryStores,
+} from "./context-factory.js";
