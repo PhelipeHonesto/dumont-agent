@@ -13,18 +13,19 @@ function authHeaders(): Record<string, string> {
   return key ? { Authorization: `Bearer ${key}` } : {};
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
 
 interface Props {
+  messages: ChatMessage[];
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   dealId: string | null;
   apiUrl: string;
 }
 
-export function ChatView({ dealId, apiUrl }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export function ChatView({ messages, setMessages, dealId, apiUrl }: Props) {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);

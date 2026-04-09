@@ -15,7 +15,7 @@ import { CallAssist } from "./components/CallAssist";
 import { SDRQueue } from "./components/SDRQueue";
 import { AutonomyDashboard } from "./components/AutonomyDashboard";
 import { IntelligenceView } from "./components/IntelligenceView";
-import { ChatView } from "./components/ChatView";
+import { ChatView, type ChatMessage } from "./components/ChatView";
 import { useDealStore } from "./hooks/useDealStore";
 import { CommandBar } from "./components/CommandBar";
 import { Phone } from "./components/Icons";
@@ -50,6 +50,7 @@ export function App() {
   const isTablet = useMediaQuery("(max-width: 1199px)");
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("pipeline");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [terminalOpen, setTerminalOpen] = useState(false);
 
   // Global Cmd+K / Ctrl+K to toggle terminal panel
@@ -217,7 +218,7 @@ export function App() {
           )}
 
           {activeTab === "dumont" && (
-            <ChatView dealId={selectedDealId} apiUrl={API_BASE} />
+            <ChatView messages={chatMessages} setMessages={setChatMessages} dealId={selectedDealId} apiUrl={API_BASE} />
           )}
         </div>
 
