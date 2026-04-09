@@ -431,24 +431,28 @@ export interface ParsedRequest {
   clientContact: string | null;
 }
 
+/** Max input length before regex extraction. Kills ReDoS on untrusted input. */
+const MAX_INPUT_LENGTH = 2000;
+
 /**
  * Code-layer parser — extracts all structured fields from raw text.
  * No LLM call. Pure regex/pattern matching.
  */
 export function parseRequestText(rawRequest: string, today?: Date): ParsedRequest {
-  const [dep, arr] = extractRoute(rawRequest);
+  const capped = rawRequest.slice(0, MAX_INPUT_LENGTH);
+  const [dep, arr] = extractRoute(capped);
 
   return {
     departure: dep,
     arrival: arr,
-    date: extractDate(rawRequest, today),
-    pax: extractPax(rawRequest),
-    aircraftClass: extractAircraftClass(rawRequest),
-    budget: extractBudget(rawRequest),
-    isRoundTrip: isRoundTrip(rawRequest),
-    specialRequirements: extractSpecialRequirements(rawRequest),
-    clientName: extractClientName(rawRequest),
-    clientContact: extractContact(rawRequest),
+    date: extractDate(capped, today),
+    pax: extractPax(capped),
+    aircraftClass: extractAircraftClass(capped),
+    budget: extractBudget(capped),
+    isRoundTrip: isRoundTrip(capped),
+    specialRequirements: extractSpecialRequirements(capped),
+    clientName: extractClientName(capped),
+    clientContact: extractContact(capped),
   };
 }
 

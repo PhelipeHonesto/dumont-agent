@@ -19,6 +19,21 @@ import type { ActiveDeal } from "./thread-matcher.js";
 import { classifySender, classifyIntent } from "./intent-classifier.js";
 import type { SenderRole } from "./intent-classifier.js";
 import { extractPax, extractBudget, extractRoute, extractAircraftClass } from "../capabilities/intake.js";
+import { z } from "zod";
+
+// ── Operator Quote Extraction Schema ────────────────────────────────────
+
+/** Schema for LLM-confirmed operator quote extraction. */
+export const OperatorQuoteSchema = z.object({
+  quotedPrice: z.number().positive(),
+  currency: z.string().default("USD"),
+  validUntil: z.string().optional(),
+  notes: z.string().optional(),
+});
+export type OperatorQuote = z.infer<typeof OperatorQuoteSchema>;
+
+/** Injectable LLM function for confirming operator quotes. */
+export type QuoteExtractorFn = (messageBody: string) => Promise<OperatorQuote | null>;
 
 // ── Router Result ────────────────────────────────────────────────────────
 
@@ -56,6 +71,12 @@ export interface RouterOptions {
    * In production this calls intake(). Injectable for testing.
    */
   createDeal: (messageBody: string) => Promise<DealContext>;
+  /**
+   * LLM-confirmed quote extraction. If provided, operator quote_response
+   * messages are verified by the LLM before any price enters the pipeline.
+   * The regex extractPrice is used as a fast pre-check; the LLM confirms.
+   */
+  quoteExtractor?: QuoteExtractorFn;
 }
 
 // ── Main Router ──────────────────────────────────────────────────────────
@@ -110,7 +131,7 @@ export async function routeMessage(
   msg.intent = intent;
 
   // ── Step 5: Determine action ───────────────────────────────────────
-  const action = determineAction(intent, senderRole, deal, msg);
+  const action = await determineAction(intent, senderRole, deal, msg, options.quoteExtractor);
 
   return {
     deal,
@@ -185,19 +206,32 @@ function runExtractors(body: string, deal: DealContext): ExtractorPatch {
 
 // ── Action determination ─────────────────────────────────────────────────
 
-function determineAction(
+async function determineAction(
   intent: MessageIntent,
   senderRole: SenderRole,
   deal: DealContext,
   msg: Message,
-): RouteAction {
+  quoteExtractor?: QuoteExtractorFn,
+): Promise<RouteAction> {
   switch (intent) {
     case "quote_response": {
       if (senderRole === "operator") {
-        const price = extractPrice(msg.body);
-        if (price !== null) {
-          return { type: "advance_to_quoted", operatorPrice: price };
+        // Fast pre-check: regex extraction
+        const regexPrice = extractPrice(msg.body);
+        if (regexPrice === null) return { type: "none" };
+
+        // If LLM extractor is available, confirm the price before it enters the pipeline
+        if (quoteExtractor) {
+          const confirmed = await quoteExtractor(msg.body);
+          if (confirmed) {
+            return { type: "advance_to_quoted", operatorPrice: confirmed.quotedPrice };
+          }
+          // LLM couldn't confirm — flag for human review
+          return { type: "flag_for_human", reason: `Regex found $${regexPrice.toLocaleString()} but LLM could not confirm operator quote. Manual review required.` };
         }
+
+        // No LLM extractor (tests, cold start) — use regex price
+        return { type: "advance_to_quoted", operatorPrice: regexPrice };
       }
       return { type: "none" };
     }

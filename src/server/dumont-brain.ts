@@ -49,6 +49,7 @@ interface ConversationState {
 }
 
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
+const MAX_SESSIONS = 1000;
 const sessions = new Map<string, ConversationState>();
 
 // Evict stale sessions every 10 minutes
@@ -62,6 +63,18 @@ setInterval(() => {
 function getOrCreate(callId: string): ConversationState {
   let state = sessions.get(callId);
   if (!state) {
+    // LRU eviction: if at capacity, delete the oldest session
+    if (sessions.size >= MAX_SESSIONS) {
+      let oldestKey: string | null = null;
+      let oldestAccess = Infinity;
+      for (const [key, s] of sessions) {
+        if (s.lastAccess < oldestAccess) {
+          oldestAccess = s.lastAccess;
+          oldestKey = key;
+        }
+      }
+      if (oldestKey) sessions.delete(oldestKey);
+    }
     state = {
       fields: { departure: null, arrival: null, date: null, pax: null, budget: null, aircraftClass: null },
       turnCount: 0,

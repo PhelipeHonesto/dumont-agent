@@ -24,19 +24,20 @@ import { generateMessageId } from "../../src/schemas/message.js";
 import type { Message, MessageChannel } from "../../src/schemas/message.js";
 import type { DealContext } from "../../src/schemas/deal-context.js";
 import { createHmac } from "node:crypto";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { createTestDb } from "../../src/memory/database.js";
 
 beforeEach(() => _resetDealCounter());
 
 const mockFetch = async () => ({ ok: true, status: 200, json: async () => ({ id: "m1" }) });
 
-function tmpStore<T>(Ctor: new (path: string) => T): { store: T; cleanup: () => void } {
-  const dir = mkdtempSync(join(tmpdir(), "dumont-err-"));
-  const path = join(dir, "s.json");
-  writeFileSync(path, "[]");
-  return { store: new Ctor(path), cleanup: () => rmSync(dir, { recursive: true }) };
+function tmpAutoStore(): { store: AutonomyStore; cleanup: () => void } {
+  const db = createTestDb();
+  return { store: new AutonomyStore(db), cleanup: () => db.close() };
+}
+
+function tmpMsgStore(): { store: MessageStore; cleanup: () => void } {
+  const db = createTestDb();
+  return { store: new MessageStore(db), cleanup: () => db.close() };
 }
 
 function makeMsg(overrides: Partial<Message> = {}): Message {
@@ -126,7 +127,7 @@ describe("respond handles failure gracefully", () => {
 
 describe("confidence gate blocks on NEVER list even if autonomous", () => {
   it("blocks client-facing price even with autonomy earned", () => {
-    const { store: autoStore, cleanup } = tmpStore(AutonomyStore);
+    const { store: autoStore, cleanup } = tmpAutoStore();
     // Graduate autonomy
     for (let i = 0; i < 10; i++) autoStore.recordApproval("email", "quote_response", "client", 0);
     expect(autoStore.isAutonomous("email", "quote_response", "client")).toBe(true);
@@ -157,22 +158,20 @@ describe("stage regression from closed throws PipelineError", () => {
 });
 
 describe("MessageStore persists through save/load cycle", () => {
-  it("messages survive store recreation", () => {
-    const dir = mkdtempSync(join(tmpdir(), "dumont-persist-"));
-    const path = join(dir, "msgs.json");
-    writeFileSync(path, "[]");
+  it("messages survive store recreation on same db", () => {
+    const db = createTestDb();
 
     // Save
-    const store1 = new MessageStore(path);
+    const store1 = new MessageStore(db);
     store1.saveMessage(makeMsg({ id: "persist_001", body: "Persisted message" }));
     expect(store1.count).toBe(1);
 
-    // Recreate from same file
-    const store2 = new MessageStore(path);
+    // Recreate from same db
+    const store2 = new MessageStore(db);
     expect(store2.count).toBe(1);
     expect(store2.getByMessageId("persist_001")).not.toBeNull();
     expect(store2.getByMessageId("persist_001")!.body).toBe("Persisted message");
 
-    rmSync(dir, { recursive: true });
+    db.close();
   });
 });

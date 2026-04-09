@@ -13,9 +13,7 @@ import type { TranscriptChunk, DetectedEntity, Call } from "../src/schemas/call.
 import { VoiceCopilotAdapter, generateCallBrief } from "../src/channels/voice.js";
 import { CallStore } from "../src/memory/call-store.js";
 import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { createTestDb } from "../src/memory/database.js";
 
 beforeEach(() => _resetDealCounter());
 
@@ -355,10 +353,8 @@ describe("generateCallBrief", () => {
 
 describe("CallStore", () => {
   function makeStore(): { store: CallStore; cleanup: () => void } {
-    const dir = mkdtempSync(join(tmpdir(), "dumont-callstore-"));
-    const path = join(dir, "calls.json");
-    writeFileSync(path, "[]");
-    return { store: new CallStore(path), cleanup: () => rmSync(dir, { recursive: true }) };
+    const db = createTestDb();
+    return { store: new CallStore(db), cleanup: () => db.close() };
   }
 
   it("save persists and getByDealId retrieves", () => {

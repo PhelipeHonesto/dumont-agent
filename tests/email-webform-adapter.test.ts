@@ -19,9 +19,7 @@ import type { Message } from "../src/schemas/message.js";
 import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
 import { advanceStage } from "../src/orchestrator/stage-transitions.js";
 import { createHmac } from "node:crypto";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { createTestDb } from "../src/memory/database.js";
 
 beforeEach(() => { _resetDealCounter(); _clearTemplateCache(); });
 
@@ -375,10 +373,8 @@ describe("WebFormAdapter", () => {
 
 describe("MessageStore", () => {
   function makeStore(): { store: MessageStore; cleanup: () => void } {
-    const dir = mkdtempSync(join(tmpdir(), "dumont-msgstore-"));
-    const path = join(dir, "messages.json");
-    writeFileSync(path, "[]");
-    return { store: new MessageStore(path), cleanup: () => rmSync(dir, { recursive: true }) };
+    const db = createTestDb();
+    return { store: new MessageStore(db), cleanup: () => db.close() };
   }
 
   function makeMsg(overrides: Partial<Message> = {}): Message {
