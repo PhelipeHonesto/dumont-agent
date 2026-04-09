@@ -40,7 +40,7 @@ export function fmtPct(n: number | null | undefined, decimals = 1): string {
 /** Pipeline stage ordering. */
 const STAGE_ORDER: Record<string, number> = {
   intake: 0, qualified: 1, estimated: 2, sourced: 3,
-  quoted: 4, presented: 5, confirmed: 6, closed: 7,
+  quoted: 4, awaiting_review: 5, presented: 6, confirmed: 7, closed: 8,
 };
 
 export function stageIndex(stage: DealStage): number {
@@ -54,7 +54,8 @@ export function nextStep(deal: DealContext): string | null {
     qualified: "Estimate",
     estimated: "Sourcing",
     sourced: "Operator quote",
-    quoted: "Presentation",
+    quoted: "Broker review",
+    awaiting_review: "Presentation",
     presented: "Client decision",
     confirmed: "Close",
   };

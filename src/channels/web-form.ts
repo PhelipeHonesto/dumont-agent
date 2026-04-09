@@ -40,7 +40,7 @@ export class WebFormAdapter implements ChannelAdapter {
     if (form.pax) parts.push(`for ${form.pax} passengers`);
     if (form.budget) parts.push(`Budget: ${form.budget}`);
     if (form.notes) parts.push(form.notes);
-    const body = parts.join(". ") || `Quote request from ${form.name}`;
+    const body = (parts.join(". ") || `Quote request from ${form.name}`).slice(0, 2000);
 
     const parsedData: Record<string, unknown> = {};
     if (form.name) parsedData["clientName"] = form.name;

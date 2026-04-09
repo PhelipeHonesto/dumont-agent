@@ -10,6 +10,7 @@ import cors from "cors";
 import { conversationRouter } from "./routes/conversation.js";
 import { healthRouter } from "./routes/health.js";
 import { vapiRouter } from "./routes/vapi-llm.js";
+import { dealsRouter } from "./routes/deals.js";
 import { closeDb } from "../memory/database.js";
 
 // ── Env Validation ──────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ app.use(express.json());
 app.use(conversationRouter);
 app.use(healthRouter);
 app.use(vapiRouter);
+app.use(dealsRouter);
 
 // ── Global Error Handler ────────────────────────────────────────────────
 

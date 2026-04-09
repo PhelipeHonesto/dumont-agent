@@ -117,6 +117,61 @@ function TimerCountdown({ deal }: { deal: DealContext }) {
   );
 }
 
+// ── Pricing waterfall ────────────────────────────────────────────────────
+
+function WaterfallRow({ label, value, delta, color }: { label: string; value: string; delta?: string; color?: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0" }}>
+      <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>{label}</span>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        {delta && <span style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: color ?? "var(--text-muted)" }}>{delta}</span>}
+        <span style={{ fontSize: 13, fontFamily: "var(--font-mono)", color: color ?? "var(--text-primary)", fontWeight: 500 }}>{value}</span>
+      </div>
+    </div>
+  );
+}
+
+function PricingWaterfall({ deal }: { deal: DealContext }) {
+  const est = deal.estimate.priceRange;
+  const estMedian = est ? Math.round((est.low + est.high) / 2) : null;
+  const ghost = deal.estimate.positioning;
+  const opQuote = deal.quote.operatorPrice;
+  const margin = deal.quote.margin;
+  const clientPrice = deal.quote.osaPrice;
+  const marginAmount = clientPrice && opQuote ? clientPrice - opQuote : null;
+
+  return (
+    <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4, padding: "8px 12px" }}>
+      {estMedian != null && (
+        <WaterfallRow label="Physics Estimate" value={fmtPrice(estMedian)} />
+      )}
+      {ghost != null && ghost > 0 && (
+        <WaterfallRow label="Ghost Positioning" value={`−${fmtPrice(Math.round(ghost * 8))}`} delta="saved" color="var(--green)" />
+      )}
+      {opQuote != null && (
+        <WaterfallRow label="Operator Quote" value={fmtPrice(opQuote)} />
+      )}
+      {margin != null && marginAmount != null && (
+        <WaterfallRow label={`OSA Margin (${fmtPct(margin)})`} value={`+${fmtPrice(marginAmount)}`} color="var(--text-muted)" />
+      )}
+      {(opQuote != null || marginAmount != null) && (
+        <div style={{ borderTop: "1px solid var(--border)", marginTop: 4, paddingTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>Client Price</span>
+          <span style={{ fontSize: 18, fontFamily: "var(--font-mono)", color: "var(--text-primary)", fontWeight: 700 }}>
+            {fmtPrice(clientPrice)}
+          </span>
+        </div>
+      )}
+      {deal.outcome.revenue != null && (
+        <div style={{ marginTop: 4, display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>Revenue</span>
+          <span style={{ fontSize: 13, fontFamily: "var(--font-mono)", color: "var(--green)", fontWeight: 600 }}>{fmtPrice(deal.outcome.revenue)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Empty state ──────────────────────────────────────────────────────────
 
 function EmptyDetail() {
@@ -130,7 +185,12 @@ function EmptyDetail() {
 
 // ── Main component ───────────────────────────────────────────────────────
 
-export function DealDetail({ deal }: { deal: DealContext | null }) {
+interface DealDetailProps {
+  deal: DealContext | null;
+  onReviewAction?: (dealId: string, action: "approve" | "reject", reason: string) => void;
+}
+
+export function DealDetail({ deal, onReviewAction }: DealDetailProps) {
   if (!deal) return <EmptyDetail />;
 
   const next = nextStep(deal);
@@ -166,6 +226,46 @@ export function DealDetail({ deal }: { deal: DealContext | null }) {
         )}
       </header>
 
+      {/* Review banner — full width, unmissable, with inline approve/reject */}
+      {deal.stage === "awaiting_review" && (
+        <div style={{
+          padding: "10px 12px", marginBottom: 12, borderRadius: 4,
+          background: "rgba(245,158,11,0.08)", border: "1px solid var(--amber)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+            <ShieldAlert size={16} color="var(--amber)" />
+            <span style={{ fontSize: 12, color: "var(--amber)", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Review Required</span>
+          </div>
+          {/* Show specific Guardian warnings */}
+          {deal.guardian.passes.flatMap((p) =>
+            p.checks.filter((c) => !c.passed && c.severity === "warning").map((c, i) => (
+              <div key={`${p.stage}-${i}`} style={{ fontSize: 11, color: "var(--text-primary)", padding: "2px 0 2px 22px" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)" }}>{p.stage.toUpperCase()}:</span>{" "}
+                {c.message}
+              </div>
+            )),
+          )}
+          {/* Inline approve/reject */}
+          {onReviewAction && (
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button
+                onClick={() => { const r = window.prompt("Approve reason:"); if (r != null) onReviewAction(deal.id, "approve", r); }}
+                style={{ padding: "6px 16px", border: "none", borderRadius: 3, cursor: "pointer", background: "var(--green)", color: "#fff", fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)" }}
+              >
+                APPROVE
+              </button>
+              <button
+                onClick={() => { const r = window.prompt("Reject reason:"); if (r != null) onReviewAction(deal.id, "reject", r); }}
+                style={{ padding: "6px 16px", border: "none", borderRadius: 3, cursor: "pointer", background: "var(--osa-red)", color: "#fff", fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)" }}
+              >
+                REJECT
+              </button>
+              <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)", alignSelf: "center" }}>⌘↵ approve · ⌘⌫ reject</span>
+            </div>
+          )}
+        </div>
+      )}
+
       <StageTimeline deal={deal} />
       <TimerCountdown deal={deal} />
 
@@ -189,14 +289,10 @@ export function DealDetail({ deal }: { deal: DealContext | null }) {
         <Field label="Budget" value={deal.client.budget ? `${fmtPrice(deal.client.budget.min)}–${fmtPrice(deal.client.budget.max)}` : null} />
       </Section>
 
-      {/* Pricing — only if estimate exists */}
+      {/* Pricing waterfall — each line builds on the last */}
       {hasEstimate && (
         <Section title="Pricing">
-          <Field label="Estimate" value={deal.estimate.priceRange ? `${fmtPrice(deal.estimate.priceRange.low)}–${fmtPrice(deal.estimate.priceRange.high)}` : null} />
-          <Field label="Operator Quote" value={fmtPrice(deal.quote.operatorPrice)} />
-          <Field label="OSA Price" value={fmtPrice(deal.quote.osaPrice)} />
-          <Field label="Margin" value={deal.quote.margin != null ? fmtPct(deal.quote.margin) : null} />
-          {hasOutcome && <Field label="Revenue" value={fmtPrice(deal.outcome.revenue)} />}
+          <PricingWaterfall deal={deal} />
         </Section>
       )}
 

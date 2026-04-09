@@ -425,6 +425,53 @@ export function closeDeal(
   return record;
 }
 
+// ── Resume Deal (from awaiting_review) ───────────────────────────────────
+
+import type { DealEventLog } from "../memory/deal-event-log.js";
+import { PipelineError } from "../utils/errors.js";
+
+/**
+ * Resume a deal paused at awaiting_review.
+ * Called when the founder approves or rejects a deal with Guardian warnings.
+ *
+ * @param ctx - The deal context (must be at awaiting_review stage).
+ * @param action - "approve" advances to presented, "reject" fails the deal.
+ * @param reason - Human-readable reason for the decision.
+ * @param eventLog - Optional deal event log for audit trail.
+ */
+export function resumeDeal(
+  ctx: DealContext,
+  action: "approve" | "reject",
+  reason: string,
+  eventLog?: DealEventLog,
+): void {
+  if (ctx.stage !== "awaiting_review") {
+    throw new PipelineError(
+      `Cannot resume deal in stage "${ctx.stage}" — must be "awaiting_review"`,
+      { dealId: ctx.id, stage: ctx.stage, outcome: "resume_blocked" },
+    );
+  }
+
+  eventLog?.appendEvent(ctx.id, "awaiting_review",
+    action === "approve" ? "review_approved" : "review_rejected",
+    { reason, reviewedBy: "founder" },
+  );
+
+  if (action === "approve") {
+    advanceStage(ctx, "presented");
+    ctx.outcome.notes = ctx.outcome.notes
+      ? `${ctx.outcome.notes}; Manual approval: ${reason}`
+      : `Manual approval: ${reason}`;
+  } else {
+    advanceStage(ctx, "failed");
+    ctx.outcome.notes = ctx.outcome.notes
+      ? `${ctx.outcome.notes}; Rejected at review: ${reason}`
+      : `Rejected at review: ${reason}`;
+  }
+
+  ctx.updatedAt = new Date().toISOString();
+}
+
 // Re-exports
 export { createDealContext, updateDealContext, snapshotContext } from "./deal-context-manager.js";
 export { advanceStage, isValidTransition, InvalidTransitionError, regressStage, isAllowedRegression } from "./stage-transitions.js";

@@ -10,7 +10,7 @@ export type DealMode = "sim" | "live";
 
 export type DealStage =
   | "intake" | "qualified" | "estimated" | "sourced"
-  | "quoted" | "presented" | "confirmed" | "closed" | "failed";
+  | "quoted" | "awaiting_review" | "presented" | "confirmed" | "closed" | "failed";
 
 export type ClientType = "new" | "repeat";
 export type SubstitutionPref = "auto_within_10pct" | "always_approve" | "cancel_if_unavailable";
@@ -163,4 +163,46 @@ export interface OperatorStats {
   conversionRate: number;
   avgResponseTime: number;
   avgDelta: number;
+}
+
+// ── Validation Ledger ───────────────────────────────────────────────────
+
+export interface ValidationLedgerEntry {
+  route: string;
+  date: string;
+  mode: string;
+  leadTimeHours: number;
+  rliAtQuote: string;
+  dumontPhysicsEstimate: number | null;
+  ghostPositioningValue: number | null;
+  operatorQuotedPrice: number | null;
+  osaClientPrice: number | null;
+  realizedMarginPct: number | null;
+  rfqsSent: number;
+  quotesReceived: number;
+  operatorResponseMinutes: number | null;
+  clientDecisionMinutes: number | null;
+  outcome: string;
+  fleetResilienceUsed: boolean;
+  tripCompleted: boolean | null;
+  notes: string;
+}
+
+export interface LedgerSummary {
+  totalDeals: number;
+  bookedDeals: number;
+  winRate: number;
+  totalRevenue: number;
+  avgMargin: number;
+  avgResponseTime: number;
+}
+
+export interface DealMetrics {
+  totalDeals: number;
+  closedDeals: number;
+  conversionRate: number;
+  totalRevenue: number;
+  avgDealSize: number;
+  avgMargin: number;
+  avgEstimateDelta: number;
 }

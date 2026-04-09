@@ -16,6 +16,7 @@ const STAGES: { key: DealStage; label: string; full: string }[] = [
   { key: "estimated", label: "EST", full: "Estimated" },
   { key: "sourced", label: "SRC", full: "Sourced" },
   { key: "quoted", label: "QOT", full: "Quoted" },
+  { key: "awaiting_review", label: "REV", full: "Review" },
   { key: "presented", label: "PRS", full: "Presented" },
   { key: "confirmed", label: "CNF", full: "Confirmed" },
   { key: "closed", label: "CLS", full: "Closed" },
@@ -122,6 +123,14 @@ interface Props {
 export function PipelineView({ deals, selectedId, onSelect, loading }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
 
+  // Sort: awaiting_review deals float to the top
+  const sortedDeals = [...deals].sort((a, b) => {
+    const aReview = a.stage === "awaiting_review" ? 0 : 1;
+    const bReview = b.stage === "awaiting_review" ? 0 : 1;
+    if (aReview !== bReview) return aReview - bReview;
+    return 0; // preserve existing order otherwise
+  });
+
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!deals.length) return;
     const idx = deals.findIndex((d) => d.id === selectedId);
@@ -160,9 +169,15 @@ export function PipelineView({ deals, selectedId, onSelect, loading }: Props) {
         <EmptyState />
       ) : (
         <div ref={listRef} role="listbox" aria-label="Deal list" tabIndex={0} onKeyDown={onKeyDown} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 8px 8px", outline: "none" }}>
-          {deals.map((deal) => {
+          {sortedDeals.map((deal) => {
             const selected = deal.id === selectedId;
             const next = nextStep(deal);
+            const isReview = deal.stage === "awaiting_review";
+            const guardianWarnings = isReview
+              ? deal.guardian.passes.flatMap((p) =>
+                  p.checks.filter((c) => c.severity === "warning" && !c.passed),
+                )
+              : [];
             return (
               <div
                 key={deal.id}
@@ -177,6 +192,7 @@ export function PipelineView({ deals, selectedId, onSelect, loading }: Props) {
                   display: "flex", flexDirection: "column", gap: 5,
                   padding: "10px 12px", borderRadius: 6, border: "none",
                   background: selected ? "var(--surface-active)" : "transparent",
+                  borderLeft: isReview ? "3px solid var(--amber)" : undefined,
                   cursor: "pointer", textAlign: "left", width: "100%",
                   animation: "fadeIn 0.2s ease-out",
                   transition: "background 0.15s",
@@ -191,6 +207,15 @@ export function PipelineView({ deals, selectedId, onSelect, loading }: Props) {
                     <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
                       {deal.client.name || deal.id}
                     </span>
+                    {isReview && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, fontFamily: "var(--font-mono)",
+                        color: "#000", background: "var(--amber)",
+                        padding: "1px 5px", borderRadius: 3, letterSpacing: 0.5,
+                      }}>
+                        REVIEW REQUIRED
+                      </span>
+                    )}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <TimerBadge deal={deal} />
@@ -223,6 +248,17 @@ export function PipelineView({ deals, selectedId, onSelect, loading }: Props) {
                 {next && deal.stage !== "closed" && deal.stage !== "failed" && (
                   <div style={{ fontSize: 10, color: "var(--text-muted)", opacity: 0.7 }}>
                     Next: {next} · {fmtRelative(deal.updatedAt)}
+                  </div>
+                )}
+
+                {/* Guardian warnings for awaiting_review deals */}
+                {isReview && guardianWarnings.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
+                    {guardianWarnings.map((w, i) => (
+                      <div key={i} style={{ fontSize: 10, color: "var(--amber)", fontFamily: "var(--font-mono)" }}>
+                        {w.name}: {w.message}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

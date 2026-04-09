@@ -1,6 +1,6 @@
 /**
  * Mission Control — OSA Connect Dashboard
- * Tab navigation: Pipeline | Inbox | Calls | SDR | Autonomy
+ * Tab navigation: Pipeline | Inbox | Calls | SDR | Autonomy | Intelligence
  */
 
 import { useState, useCallback, useEffect } from "react";
@@ -14,11 +14,14 @@ import { InboxFeed } from "./components/InboxFeed";
 import { CallAssist } from "./components/CallAssist";
 import { SDRQueue } from "./components/SDRQueue";
 import { AutonomyDashboard } from "./components/AutonomyDashboard";
+import { IntelligenceView } from "./components/IntelligenceView";
 import { useDealStore } from "./hooks/useDealStore";
 import { CommandBar } from "./components/CommandBar";
 import { Phone } from "./components/Icons";
 
-type Tab = "pipeline" | "inbox" | "calls" | "sdr" | "autonomy";
+type Tab = "pipeline" | "inbox" | "calls" | "sdr" | "autonomy" | "intelligence";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "pipeline", label: "Pipeline" },
@@ -26,6 +29,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "calls", label: "Calls" },
   { key: "sdr", label: "SDR" },
   { key: "autonomy", label: "Autonomy" },
+  { key: "intelligence", label: "Intelligence" },
 ];
 
 function useMediaQuery(query: string): boolean {
@@ -39,7 +43,7 @@ function useMediaQuery(query: string): boolean {
 
 export function App() {
   const store = useDealStore();
-  const { deals, selectedDeal, selectedDealId, setSelectedDealId, mode, toggleMode, metrics, operatorStats } = store;
+  const { deals, selectedDeal, selectedDealId, setSelectedDealId, mode, toggleMode, metrics, operatorStats, ledgerEntries, ledgerSummary, triggerRefresh } = store;
   const isMobile = useMediaQuery("(max-width: 767px)");
   const isTablet = useMediaQuery("(max-width: 1199px)");
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
@@ -67,8 +71,22 @@ export function App() {
   const onBack = useCallback(() => setMobileShowDetail(false), []);
   const activeDealCount = deals.filter((d) => d.stage !== "closed" && d.stage !== "failed").length;
 
+  // Review action handler — calls API then triggers refetch
+  const onReviewAction = useCallback(async (dealId: string, action: "approve" | "reject", reason: string) => {
+    try {
+      await fetch(`${API_BASE}/api/deals/${dealId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, reason }),
+      });
+    } catch {
+      // API may not be running — that is fine in dev mode
+    }
+    triggerRefresh();
+  }, [triggerRefresh]);
+
   // Mock data for new tabs (same pattern as useDealStore fixture data)
-  const draftPendingCount = 1;
+  const draftPendingCount = deals.filter((d) => d.stage === "awaiting_review").length || 1;
   const hasActiveCall = false;
 
   return (
@@ -134,17 +152,11 @@ export function App() {
               {(!isMobile || !mobileShowDetail) && (
                 <div style={{ width: isMobile ? "100%" : isTablet ? "100%" : 360, minWidth: isMobile ? undefined : 320, display: "flex", flexDirection: "column", background: "var(--surface)", overflow: "hidden", maxHeight: isTablet && !isMobile ? "50vh" : undefined }}>
                   <PipelineView deals={deals} selectedId={selectedDealId} onSelect={onSelectDeal} />
-                  {!isMobile && (
-                    <>
-                      <LearningMetrics metrics={metrics} />
-                      <OperatorNetwork operators={operatorStats} />
-                    </>
-                  )}
                 </div>
               )}
               {(!isMobile || mobileShowDetail) && (
                 <div style={{ flex: isTablet && !isMobile ? undefined : 2, overflow: "auto" }}>
-                  <DealDetail deal={selectedDeal} />
+                  <DealDetail deal={selectedDeal} onReviewAction={onReviewAction} />
                 </div>
               )}
             </div>
@@ -190,6 +202,14 @@ export function App() {
                 { channel: "bland_text", intent: "follow_up", recipientType: "client", autoSendEnabled: false, autoSendAfter: 10, currentApprovals: 3, lastUsed: null, editRate: 0.3 },
                 { channel: "email", intent: "info_request", recipientType: "client", autoSendEnabled: false, autoSendAfter: 10, currentApprovals: 0, lastUsed: null, editRate: 0 },
               ]}
+            />
+          )}
+
+          {activeTab === "intelligence" && (
+            <IntelligenceView
+              entries={ledgerEntries}
+              summary={ledgerSummary}
+              onExportCSV={() => { window.open(`${API_BASE}/api/ledger/export`); }}
             />
           )}
         </div>
