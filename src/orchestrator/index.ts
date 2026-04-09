@@ -28,8 +28,16 @@ import { advanceStage } from "./stage-transitions.js";
 import type { ContextFactoryStores } from "./context-factory.js";
 
 // ── Capability Signatures ────────────────────────────────────────────────
-// Each capability receives a snapshot and returns section data.
-// The orchestrator merges results into the context.
+//
+// Pattern for adding a new capability:
+// 1. Create src/capabilities/your-capability.ts with a function matching the shape below
+// 2. Add it to the Capabilities interface
+// 3. Export from src/capabilities/index.ts
+// 4. Wire it into the pipeline in runPipeline() below
+//
+// Capabilities receive a DealContext snapshot (immutable) and return section data.
+// The orchestrator merges results via updateDealContext(). Capabilities NEVER
+// mutate the context directly.
 
 export interface IntakeResult {
   client: DealContext["client"];
@@ -291,6 +299,7 @@ export async function runPipeline(
     return result;
 
   } catch (err) {
+    console.error(`[pipeline] Unhandled error in deal ${ctx.id}: ${err instanceof Error ? err.message : String(err)}`);
     return fail("failed_error", err instanceof Error ? err.message : String(err));
   }
 }

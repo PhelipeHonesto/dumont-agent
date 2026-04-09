@@ -98,7 +98,8 @@ export class AviapagesClient {
         flightTime: Number(data["flight_time"] ?? data["flightTime"] ?? 0),
         fuelBurn: Number(data["fuel_burn"] ?? data["fuelBurn"] ?? 0),
       };
-    } catch {
+    } catch (err) {
+      console.warn(`[aviapages:getPriceEstimate] ${err instanceof Error ? err.message : String(err)}`);
       return null;
     }
   }
@@ -133,7 +134,8 @@ export class AviapagesClient {
         distance: Number(data["distance"] ?? 0),
         fuelBurn: Number(data["fuel_burn"] ?? data["fuelBurn"] ?? 0),
       };
-    } catch {
+    } catch (err) {
+      console.warn(`[aviapages:getFlightCalc] ${err instanceof Error ? err.message : String(err)}`);
       return null;
     }
   }

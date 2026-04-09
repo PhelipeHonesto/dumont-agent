@@ -1,11 +1,9 @@
 /**
  * Deal Store — SQLite-backed storage for deal records.
- * Feeds the learning loop.
+ * Layer: memory
  *
- * Per spec: learning-loop.md
- *
- * Migration from JSON: public API is identical.
- * Internal: stores money as integer cents, converts at boundary.
+ * All money stored as integer cents. Converted to dollars at the public API boundary.
+ * Indexed on route, operator, client, and timestamp.
  */
 
 import type Database from "better-sqlite3";

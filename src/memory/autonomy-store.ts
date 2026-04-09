@@ -1,10 +1,9 @@
 /**
- * Autonomy Store — per-template approval tracking.
+ * Autonomy Store — SQLite-backed per-template approval tracking.
+ * Layer: memory
+ *
  * Tracks how many times a draft type was approved with zero edits.
  * After threshold (default 10), Dumont earns autonomy to auto-send.
- * Per spec: communication-layer.md section 2.4.
- *
- * Migration from JSON: public API is identical.
  * Uses UNIQUE(channel, intent, recipient_type) with INSERT OR REPLACE for upserts.
  */
 

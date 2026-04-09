@@ -319,7 +319,7 @@ async function main() {
     process.exit(1);
   }
 
-  const dealStore = new DealStore(resolve(__dirname, "..", "data", "sim-deals.json"));
+  const dealStore = new DealStore(resolve(__dirname, "..", "data", "sim-deals.db"));
   const aviapages = createMockAviapages();
 
   const hr = "=".repeat(72);

@@ -33,7 +33,7 @@ Orchestrator (holds Deal Context — single source of truth)
   └── writes to Learning Loop     → deal outcome → DealStore → pricing/operator intelligence
 ```
 
-Pipeline: INTAKE → GUARDIAN → ESTIMATE → GUARDIAN → SOURCE → GUARDIAN → QUOTE → GUARDIAN → PRESENT → GUARDIAN → CLOSE → LEARN
+Pipeline: INTAKE → GUARDIAN → ESTIMATE → GUARDIAN → SOURCE → GUARDIAN → QUOTE → GUARDIAN → [AWAITING_REVIEW if warnings] → PRESENT → GUARDIAN → CLOSE → LEARN
 
 Guardian is NOT a final checkpoint. It is a continuous validation layer.
 It runs after every stage and blocks the pipeline on critical failures.
@@ -75,11 +75,13 @@ Spec: `specs/comms/communication-layer.md` (SPARC v2.2, 1056 lines)
 
 - TypeScript (strict)
 - Zod for schemas
+- SQLite (better-sqlite3, WAL mode) for all persistence — integer cents, schema versioned
 - Anthropic Claude API for LLM calls (intake parser fallback)
 - Aviapages API for pricing/flight calc/directories
 - Vapi + Resend + Twilio + Deepgram for comms
 - Vite + React for Mission Control dashboard
 - Vitest for testing
+- ULID for globally unique, sortable deal IDs
 
 ## Project Structure
 
@@ -104,12 +106,13 @@ dumont-agent/
 ├── src/
 │   ├── orchestrator/             ← pipeline engine + closeDeal + stage transitions
 │   │   ├── index.ts
-│   │   ├── deal-context-manager.ts
-│   │   └── stage-transitions.ts
+│   │   ├── deal-context-manager.ts ← ULID-based deal IDs
+│   │   ├── stage-transitions.ts  ← incl. awaiting_review stage
+│   │   └── context-factory.ts    ← stage-specific context slices
 │   ├── capabilities/             ← callable modules
-│   │   ├── intake.ts             ← code-layer parser + LLM fallback + qualification
-│   │   ├── guardian.ts           ← 5 stage-specific validation passes
-│   │   ├── quote.ts              ← Phase 1 estimate + Phase 2 real quote + margin calc
+│   │   ├── intake.ts             ← code-layer parser + LLM fallback + input sanitization
+│   │   ├── guardian.ts           ← 5 stage-specific validation passes + margin critical
+│   │   ├── quote.ts              ← Phase 1 estimate + Phase 2 real quote + margin bounds
 │   │   ├── sourcing.ts           ← 5-factor weighted ranking algorithm
 │   │   ├── scenario.ts           ← presentation builder + backup logic + timer
 │   │   ├── transcript-processor.ts ← call transcript → structured data
@@ -118,8 +121,9 @@ dumont-agent/
 │   │   ├── respond.ts            ← response generation + confidence-gated autonomy
 │   │   └── index.ts
 │   ├── schemas/                  ← Zod schemas (single source of truth)
-│   │   ├── deal-context.ts
+│   │   ├── deal-context.ts       ← incl. awaiting_review stage, regression type
 │   │   ├── deal-record.ts
+│   │   ├── composite-objects.ts  ← RouteIntel, OperatorProfile, ClientProfile, ValidationLedger
 │   │   ├── message.ts            ← inbound/outbound message schemas
 │   │   ├── conversation.ts       ← thread + conversation state
 │   │   ├── call.ts               ← call session + transcript schemas
@@ -127,29 +131,32 @@ dumont-agent/
 │   │   └── index.ts
 │   ├── channels/                 ← channel adapters
 │   │   ├── adapter.ts            ← base adapter interface
-│   │   ├── bland-ai.ts           ← voice SDR + iMessage + SMS
 │   │   ├── email.ts              ← Resend adapter
 │   │   ├── web-form.ts           ← website intake form
-│   │   ├── voice.ts              ← Twilio conference bridge
+│   │   ├── voice.ts              ← Twilio conference bridge (copilot)
 │   │   └── index.ts
 │   ├── router/                   ← message routing + classification
-│   │   ├── message-router.ts     ← route inbound → capability
+│   │   ├── message-router.ts     ← route inbound → capability + LLM quote confirm
 │   │   ├── thread-matcher.ts     ← match messages to deals
 │   │   ├── intent-classifier.ts  ← classify message intent
 │   │   └── confidence-gate.ts    ← autonomy threshold logic
 │   ├── integrations/             ← external APIs
 │   │   ├── aviapages.ts          ← price calculator + flight calculator
-│   │   ├── bland-ai.ts           ← Bland AI API client
 │   │   ├── resend.ts             ← Resend email API client
 │   │   ├── twilio.ts             ← Twilio voice API client
 │   │   └── deepgram.ts           ← Deepgram transcription client
-│   ├── memory/                   ← persistence layer
-│   │   ├── deal-store.ts         ← JSON file-backed storage + query interface
-│   │   ├── learning-loop.ts      ← DealContext → DealRecord + persist
-│   │   ├── message-store.ts      ← conversation history persistence
-│   │   ├── call-store.ts         ← call session + transcript persistence
+│   ├── memory/                   ← SQLite persistence layer (all stores)
+│   │   ├── database.ts           ← SQLite singleton (WAL, FK, migrations)
+│   │   ├── migrations.ts         ← 11 migrations (deals → webhooks)
+│   │   ├── deal-store.ts         ← SQLite-backed, integer cents, indexed
+│   │   ├── composite-stores.ts   ← RouteIntel, OperatorProfile, ClientProfile, ValidationLedger
+│   │   ├── deal-event-log.ts     ← append-only audit trail
+│   │   ├── webhook-dedup.ts      ← idempotency for webhook retries
+│   │   ├── learning-loop.ts      ← DealContext → DealRecord + composite updates (transactional)
+│   │   ├── message-store.ts      ← SQLite-backed message persistence
+│   │   ├── call-store.ts         ← SQLite-backed call persistence
 │   │   ├── edit-memory.ts        ← draft revision history (evaluator feedback)
-│   │   ├── autonomy-store.ts     ← confidence gate decisions + escalation log
+│   │   ├── autonomy-store.ts     ← SQLite-backed autonomy rules
 │   │   └── index.ts
 │   ├── templates/                ← email templates
 │   │   ├── render.ts             ← template engine
@@ -158,10 +165,20 @@ dumont-agent/
 │   │       ├── client-quote.html
 │   │       ├── follow-up.html
 │   │       └── confirmation.html
+│   ├── server/                   ← Express API (Vapi voice + REST)
+│   │   ├── index.ts              ← startup, CORS, auth, graceful shutdown
+│   │   ├── middleware.ts         ← shared auth, validateBody, asyncHandler
+│   │   ├── dumont-brain.ts       ← conversational engine (session state)
+│   │   ├── claude-sdr.ts         ← Claude streaming for Vapi
+│   │   └── routes/
+│   │       ├── vapi-llm.ts       ← POST /chat/completions (Vapi webhook + dedup)
+│   │       ├── conversation.ts   ← POST /api/dumont/respond (REST, authed)
+│   │       └── health.ts         ← GET /health
 │   ├── utils/                    ← shared utilities
 │   │   ├── haversine.ts
-│   │   ├── safe-llm-call.ts
+│   │   ├── safe-llm-call.ts      ← + token metering, right-sized max_tokens
 │   │   ├── recover-json.ts
+│   │   ├── errors.ts
 │   │   └── index.ts
 │   ├── fixtures/                 ← simulation data (operators, airports, pricing)
 │   │   └── sim-data.ts
@@ -176,14 +193,18 @@ dumont-agent/
 │   ├── scenario.test.ts          ← 36 tests
 │   ├── learning-loop.test.ts     ← 39 tests
 │   ├── stage-regression.test.ts  ← 25 tests
-│   ├── message-router.test.ts    ← 38 tests (Sprint 1)
-│   ├── bland-ai.test.ts          ← 26 tests (Sprint 2)
-│   ├── email-adapter.test.ts     ← 31 tests (Sprint 3)
+│   ├── comms-sprint1.test.ts     ← 38 tests (Sprint 1)
+│   ├── email-webform-adapter.test.ts ← 31 tests (Sprint 3)
 │   ├── voice-copilot.test.ts     ← 34 tests (Sprint 4)
-│   ├── respond.test.ts           ← 30 tests (Sprint 5)
-│   ├── draft-evaluator.test.ts   ← included in Sprint 5
-│   ├── sdr.test.ts               ← included in Sprint 5
-│   └── comms-integration.test.ts ← 16 tests (Sprint 7)
+│   ├── sprint5-respond.test.ts   ← 30 tests (Sprint 5)
+│   ├── edge-cases.test.ts        ← 29 tests
+│   ├── context-factory.test.ts   ← 48 tests
+│   ├── composite-stores.test.ts  ← 41 tests
+│   ├── composite-updates.test.ts ← 36 tests
+│   ├── token-metering.test.ts    ← 21 tests
+│   └── integration/
+│       ├── end-to-end.test.ts    ← 6 tests
+│       └── error-paths.test.ts   ← 8 tests
 ├── scenarios/                    ← 25 validation scenarios
 │   └── scenarios.json
 ├── dashboard/                    ← Mission Control (Vite + React, port 5174, PWA)

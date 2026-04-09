@@ -137,8 +137,8 @@ export class DeepgramClient {
         confidence: alt.confidence ?? 0,
         isFinal: msg.is_final ?? false,
       });
-    } catch {
-      // Malformed message — skip
+    } catch (err) {
+      console.warn(`[deepgram:onMessage] Malformed WebSocket message: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 }
