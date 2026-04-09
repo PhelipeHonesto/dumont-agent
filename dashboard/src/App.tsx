@@ -15,11 +15,12 @@ import { CallAssist } from "./components/CallAssist";
 import { SDRQueue } from "./components/SDRQueue";
 import { AutonomyDashboard } from "./components/AutonomyDashboard";
 import { IntelligenceView } from "./components/IntelligenceView";
+import { ChatView } from "./components/ChatView";
 import { useDealStore } from "./hooks/useDealStore";
 import { CommandBar } from "./components/CommandBar";
 import { Phone } from "./components/Icons";
 
-type Tab = "pipeline" | "inbox" | "calls" | "sdr" | "autonomy" | "intelligence";
+type Tab = "pipeline" | "inbox" | "calls" | "sdr" | "autonomy" | "intelligence" | "dumont";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
@@ -30,6 +31,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "sdr", label: "SDR" },
   { key: "autonomy", label: "Autonomy" },
   { key: "intelligence", label: "Intelligence" },
+  { key: "dumont", label: "Dumont" },
 ];
 
 function useMediaQuery(query: string): boolean {
@@ -211,6 +213,10 @@ export function App() {
               summary={ledgerSummary}
               onExportCSV={() => { window.open(`${API_BASE}/api/ledger/export`); }}
             />
+          )}
+
+          {activeTab === "dumont" && (
+            <ChatView dealId={selectedDealId} apiUrl={API_BASE} />
           )}
         </div>
 

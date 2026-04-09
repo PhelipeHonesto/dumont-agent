@@ -11,6 +11,7 @@ import { conversationRouter } from "./routes/conversation.js";
 import { healthRouter } from "./routes/health.js";
 import { vapiRouter } from "./routes/vapi-llm.js";
 import { dealsRouter } from "./routes/deals.js";
+import { chatRouter } from "./routes/chat.js";
 import { closeDb } from "../memory/database.js";
 
 // ── Env Validation ──────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ app.use(conversationRouter);
 app.use(healthRouter);
 app.use(vapiRouter);
 app.use(dealsRouter);
+app.use(chatRouter);
 
 // ── Global Error Handler ────────────────────────────────────────────────
 
