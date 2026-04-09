@@ -7,8 +7,12 @@ import { Router, type Request, type Response } from "express";
 import { randomUUID, createHash } from "crypto";
 import { processConversation } from "../dumont-brain.js";
 import { streamClaudeResponse, getClaudeResponse, type MessageParam } from "../claude-sdr.js";
+import { WebhookDedup } from "../../memory/webhook-dedup.js";
 
 export const vapiRouter = Router();
+
+// Webhook dedup — prevents duplicate processing from Vapi retries
+const dedup = new WebhookDedup();
 
 // ── Call ID resolution ──────────────────────────────────────────────────
 
@@ -101,6 +105,13 @@ vapiRouter.post("/chat/completions", async (req: Request, res: Response) => {
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: "messages array required" });
+    return;
+  }
+
+  // Idempotency: deduplicate webhook retries
+  const bodyHash = createHash("sha256").update(JSON.stringify(req.body)).digest("hex").slice(0, 16);
+  if (dedup.isDuplicate(bodyHash)) {
+    res.status(200).json({ id: `chatcmpl-dedup`, choices: [{ message: { role: "assistant", content: "" } }] });
     return;
   }
 

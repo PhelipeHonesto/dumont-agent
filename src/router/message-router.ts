@@ -224,6 +224,14 @@ async function determineAction(
         if (quoteExtractor) {
           const confirmed = await quoteExtractor(msg.body);
           if (confirmed) {
+            // Cross-check: LLM price must be within 25% of regex price
+            const deviation = Math.abs(confirmed.quotedPrice - regexPrice) / regexPrice;
+            if (deviation > 0.25) {
+              return {
+                type: "flag_for_human",
+                reason: `Price mismatch: regex found $${regexPrice.toLocaleString()}, LLM found $${confirmed.quotedPrice.toLocaleString()} (${(deviation * 100).toFixed(0)}% deviation). Manual review required.`,
+              };
+            }
             return { type: "advance_to_quoted", operatorPrice: confirmed.quotedPrice };
           }
           // LLM couldn't confirm — flag for human review

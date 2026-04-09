@@ -25,9 +25,6 @@ if (!process.env.VAPI_SECRET) {
   console.warn("[security] VAPI_SECRET not set — /chat/completions is unauthenticated" + (IS_PROD ? " (PRODUCTION)" : " (dev)"));
 }
 
-if (!process.env.BLAND_AI_WEBHOOK_SECRET) {
-  console.warn("[security] BLAND_AI_WEBHOOK_SECRET not set — Bland AI webhooks will be rejected");
-}
 
 // ── CORS ────────────────────────────────────────────────────────────────
 

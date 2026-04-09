@@ -13,13 +13,14 @@ import type { DealContext, DealStage } from "../schemas/deal-context.js";
 import { PipelineError } from "../utils/errors.js";
 
 const VALID_TRANSITIONS: Record<string, Set<string>> = {
-  intake:     new Set(["qualified", "failed"]),
-  qualified:  new Set(["estimated", "failed"]),
-  estimated:  new Set(["sourced", "failed"]),
-  sourced:    new Set(["quoted", "failed"]),
-  quoted:     new Set(["presented", "failed"]),
-  presented:  new Set(["confirmed", "failed"]),
-  confirmed:  new Set(["closed", "failed"]),
+  intake:           new Set(["qualified", "failed"]),
+  qualified:        new Set(["estimated", "failed"]),
+  estimated:        new Set(["sourced", "failed"]),
+  sourced:          new Set(["quoted", "failed"]),
+  quoted:           new Set(["presented", "awaiting_review", "failed"]),
+  awaiting_review:  new Set(["presented", "failed"]),
+  presented:        new Set(["confirmed", "failed"]),
+  confirmed:        new Set(["closed", "failed"]),
 };
 
 /**

@@ -6,17 +6,14 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { EmailAdapter } from "../../src/channels/email.js";
-import { BlandAiAdapter } from "../../src/channels/bland-ai.js";
 import { WebFormAdapter } from "../../src/channels/web-form.js";
 import { VoiceCopilotAdapter } from "../../src/channels/voice.js";
 import { ResendClient } from "../../src/integrations/resend.js";
 import type { ResendInboundWebhook } from "../../src/integrations/resend.js";
-import { BlandAiClient } from "../../src/integrations/bland-ai.js";
-import type { BlandVoiceWebhook, BlandSmsWebhook } from "../../src/integrations/bland-ai.js";
 import { routeMessage } from "../../src/router/message-router.js";
 import type { ActiveDeal } from "../../src/router/thread-matcher.js";
 import { evaluateConfidence } from "../../src/router/confidence-gate.js";
-import { classifyLead } from "../../src/capabilities/sdr.js";
+
 import { respond } from "../../src/capabilities/respond.js";
 import { evaluateDraft } from "../../src/capabilities/draft-evaluator.js";
 import { processChunk, extractAllEntities, generateSummary } from "../../src/capabilities/transcript-processor.js";
@@ -178,49 +175,11 @@ describe("email inbound → new deal → full pipeline → closed", () => {
   });
 });
 
-// ── Test b: Bland AI voice → SDR → text follow-up ──────────────────────
-
-describe("Bland AI voice → SDR qualifies → text follow-up", () => {
-  it("processes voice webhook through SDR and responds via text", async () => {
-    const blandClient = new BlandAiClient({ apiKey: "test" }, mockFetch);
-    const adapter = new BlandAiAdapter(blandClient);
-
-    // 1. Voice webhook with analysis
-    const voicePayload: BlandVoiceWebhook = {
-      call_id: "call_001", call_type: "voice",
-      from: "+1-312-555-0199", to: "+1-773-555-0100",
-      status: "completed", started_at: new Date().toISOString(),
-      ended_at: new Date().toISOString(), duration: 180,
-      transcript: "I need to charter a flight from Teterboro to Palm Beach on April 15 for 4 passengers. Budget around $30,000.",
-      summary: "TEB to PBI, April 15, 4 pax, ~$30K.",
-      analysis: { departure: "KTEB", arrival: "KPBI", date: "2026-04-15", pax: 4, budget_min: 25000, budget_max: 35000, client_name: "Sarah Chen", client_phone: "+1-312-555-0199" },
-    };
-    const voiceMsg = adapter.receive(voicePayload);
-    expect(voiceMsg.channel).toBe("bland_voice");
-
-    // 2. SDR classifies (use transcript body which has parseable fields)
-    const sdr = classifyLead(voicePayload.transcript, null, new Date(2026, 2, 31));
-    expect(sdr.classification).toBe("qualified_with_budget");
-
-    // 3. Router creates deal
-    const routeResult = await routeMessage(voiceMsg, [], { createDeal: async () => createDealContext("live") });
-    expect(routeResult.isNewDeal).toBe(true);
-    expect(voiceMsg.parsedData?.["departure"]).toBe("KTEB");
-
-    // 4. Respond drafts acknowledgment
-    const ackDraft = await respond(routeResult.deal, voiceMsg, "follow_up");
-    expect(ackDraft.draft.draftedBy).toBe("dumont");
-    expect(ackDraft.confidenceLevel).toBe("high");
-  });
-});
-
-// ── Test c: Cross-channel threading ──────────────────────────────────────
+// ── Test b: Cross-channel threading ──────────────────────────────────────
 
 describe("web form → email → SMS cross-channel threading", () => {
   it("maintains single deal across web form and SMS channels", async () => {
     const webAdapter = new WebFormAdapter();
-    const blandClient = new BlandAiClient({ apiKey: "test" }, mockFetch);
-    const blandAdapter = new BlandAiAdapter(blandClient);
 
     // 1. Web form arrives
     const formMsg = webAdapter.receive({
@@ -237,14 +196,37 @@ describe("web form → email → SMS cross-channel threading", () => {
     expect(routeResult.isNewDeal).toBe(true);
     expect(routeResult.deal.client.budget).toBeNull();
 
-    // 2. Client texts budget from same phone
-    const smsPayload: BlandSmsWebhook = {
-      message_id: "sms_001", message_type: "imessage",
-      from: "+1-312-555-0199", to: "+1-773-555-0100",
+    // 2. Client texts budget from same phone (manually constructed message)
+    const smsMsg: Message = {
+      id: generateMessageId(),
+      dealId: null,
+      channel: "bland_text",
+      direction: "inbound",
+      from: "+1-312-555-0199",
+      to: "+1-773-555-0100",
+      fromName: null,
+      subject: null,
       body: "Our budget is around $30,000",
-      received_at: new Date().toISOString(),
+      bodyHtml: null,
+      attachments: [],
+      draftedBy: null,
+      approvedBy: null,
+      editDistance: null,
+      originalDraft: null,
+      receivedAt: new Date().toISOString(),
+      draftedAt: null,
+      approvedAt: null,
+      sentAt: null,
+      responseToId: null,
+      responseTimeMs: null,
+      threadId: null,
+      intent: null,
+      parsedData: null,
+      confidence: null,
+      confidenceLevel: null,
+      platformMessageId: null,
+      platformMetadata: null,
     };
-    const smsMsg = blandAdapter.receive(smsPayload);
     const ad = makeActiveDeal(routeResult.deal);
     addMessageToConversation(ad.conversation, formMsg);
 

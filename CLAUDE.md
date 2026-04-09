@@ -11,7 +11,7 @@ built with ruvnet's SPARC spec-first methodology and Ruflo-inspired orchestratio
 
 ## Current State (April 3, 2026)
 
-- **656 tests passing** across 20 test files, **0 type errors** (Vitest + TSC strict)
+- **628 tests passing** across 19 test files, **0 type errors** (Vitest + TSC strict)
 - **Engine complete**: Intake, Guardian, Quote (estimate + real), Sourcing, Scenario, Learning Loop, Orchestrator
 - **Communication layer complete**: 7 sprints — schemas, router, 4 channel adapters, voice copilot, respond capability, stage regression
 - **Dashboard**: `dashboard/` (Vite + React, port 5174) — 74.2 KB gzip, 5 tabs + command bar, PWA-enabled
@@ -56,7 +56,7 @@ Spec: `specs/comms/communication-layer.md` (SPARC v2.2, 1056 lines)
 
 ### Provider Stack (~$37/mo)
 
-- **Bland AI**: client-facing voice SDR + iMessage (blue bubble) + SMS
+- **Vapi**: client-facing voice AI (replaced Bland AI)
 - **Resend**: email (operator RFQs, formal client quotes)
 - **Twilio**: conference bridge (copilot during broker-operator calls)
 - **Deepgram**: real-time streaming transcription (Nova-2, aviation vocabulary)
@@ -77,7 +77,7 @@ Spec: `specs/comms/communication-layer.md` (SPARC v2.2, 1056 lines)
 - Zod for schemas
 - Anthropic Claude API for LLM calls (intake parser fallback)
 - Aviapages API for pricing/flight calc/directories
-- Bland AI + Resend + Twilio + Deepgram for comms
+- Vapi + Resend + Twilio + Deepgram for comms
 - Vite + React for Mission Control dashboard
 - Vitest for testing
 
@@ -167,7 +167,7 @@ dumont-agent/
 │   │   └── sim-data.ts
 │   ├── config.ts                 ← models, timeouts, margin policy, quote validity
 │   └── run-sim.ts                ← scenario runner CLI
-├── tests/                        ← 658 tests across 20 files
+├── tests/                        ← 628 tests across 19 files
 │   ├── deal-context.test.ts      ← 12 tests
 │   ├── guardian.test.ts          ← 52 tests
 │   ├── intake.test.ts            ← 68 tests
@@ -240,7 +240,7 @@ dumont-agent/
 ## Commands
 
 ```bash
-# Run all tests (656 tests)
+# Run all tests (628 tests)
 npm test
 
 # Run scenario simulation (25 scenarios, 92% pass rate)

@@ -70,6 +70,7 @@ export interface Capabilities {
 export type PipelineOutcome =
   | "presented"           // happy path — quote sent to client
   | "awaiting_quote"      // paused at step 4 — waiting for human
+  | "awaiting_review"     // paused — Guardian warnings need human approval before presenting
   | "failed_intake"
   | "failed_qualification"
   | "failed_budget"
@@ -243,6 +244,23 @@ export async function runPipeline(
     const blockedAfterQuote = await runGuardian("quoted");
     if (blockedAfterQuote) {
       return fail("failed_guardian", `Guardian blocked at quote: ${ctx.guardian.blockReason}`);
+    }
+
+    // If Guardian has warnings (not blocked, but flagged), pause for human review.
+    // No deal with warnings reaches a client without human eyes.
+    if (ctx.guardian.currentStatus === "warning") {
+      advanceStage(ctx, "awaiting_review");
+      const warningReasons = ctx.guardian.passes
+        .flatMap((p) => p.checks.filter((c) => !c.passed && c.severity === "warning").map((c) => c.message));
+      ctx.outcome.notes = ctx.outcome.notes
+        ? `${ctx.outcome.notes}; Guardian warnings: ${warningReasons.join("; ")}`
+        : `Guardian warnings: ${warningReasons.join("; ")}`;
+
+      return {
+        outcome: "awaiting_review",
+        dealContext: ctx,
+        wallClockMs: Date.now() - startTime,
+      };
     }
 
     // ── 5. PRESENT ─────────────────────────────────────────────────────

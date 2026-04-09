@@ -30,6 +30,7 @@ export const DealStage = z.enum([
   "estimated",
   "sourced",
   "quoted",
+  "awaiting_review",
   "presented",
   "confirmed",
   "closed",

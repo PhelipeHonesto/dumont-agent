@@ -281,6 +281,16 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    id: 11,
+    name: "create_processed_webhooks",
+    sql: `
+      CREATE TABLE IF NOT EXISTS processed_webhooks (
+        idempotency_key TEXT PRIMARY KEY,
+        processed_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `,
+  },
 ];
 
 /**

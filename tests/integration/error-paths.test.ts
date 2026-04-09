@@ -4,8 +4,6 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { BlandAiClient } from "../../src/integrations/bland-ai.js";
-import { BlandAiAdapter } from "../../src/channels/bland-ai.js";
 import { ResendClient } from "../../src/integrations/resend.js";
 import { EmailAdapter } from "../../src/channels/email.js";
 import { routeMessage } from "../../src/router/message-router.js";
@@ -23,7 +21,7 @@ import { createConversation, addMessageToConversation } from "../../src/schemas/
 import { generateMessageId } from "../../src/schemas/message.js";
 import type { Message, MessageChannel } from "../../src/schemas/message.js";
 import type { DealContext } from "../../src/schemas/deal-context.js";
-import { createHmac } from "node:crypto";
+
 import { createTestDb } from "../../src/memory/database.js";
 
 beforeEach(() => _resetDealCounter());
@@ -78,13 +76,6 @@ function makeDeal(stage?: string): DealContext {
 // ── Error Path Tests ─────────────────────────────────────────────────────
 
 describe("webhook signature rejection", () => {
-  it("Bland AI rejects invalid signature", () => {
-    const client = new BlandAiClient({ apiKey: "test", webhookSecret: "secret123" });
-    const valid = client.verifyWebhook('{"test":true}', createHmac("sha256", "secret123").update('{"test":true}').digest("hex"));
-    expect(valid).toBe(true);
-    expect(client.verifyWebhook('{"test":true}', "wrong_sig")).toBe(false);
-  });
-
   it("Resend rejects invalid signature", () => {
     const client = new ResendClient({ apiKey: "test", webhookSecret: "resend_secret" });
     expect(client.verifyWebhook('{"data":"x"}', "invalid")).toBe(false);
