@@ -8,6 +8,11 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 
+function authHeaders(): Record<string, string> {
+  const key = import.meta.env.VITE_DUMONT_API_KEY ?? localStorage.getItem("DUMONT_API_KEY") ?? "";
+  return key ? { Authorization: `Bearer ${key}` } : {};
+}
+
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -42,9 +47,7 @@ export function ChatView({ dealId, apiUrl }: Props) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(localStorage.getItem("dumont_api_key")
-            ? { Authorization: `Bearer ${localStorage.getItem("dumont_api_key")}` }
-            : {}),
+          ...authHeaders(),
         },
         body: JSON.stringify({ message: trimmed, dealId: dealId ?? undefined }),
       });

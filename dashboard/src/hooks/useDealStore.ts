@@ -11,6 +11,11 @@ import { DEMO_DEALS, DEMO_RECORDS, DEMO_OPERATOR_STATS } from "../fixtures/demo-
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 const POLL_INTERVAL = 30_000;
 
+function authHeaders(): Record<string, string> {
+  const key = import.meta.env.VITE_DUMONT_API_KEY ?? localStorage.getItem("DUMONT_API_KEY") ?? "";
+  return key ? { Authorization: `Bearer ${key}` } : {};
+}
+
 const EMPTY_LEDGER_SUMMARY: LedgerSummary = {
   totalDeals: 0,
   bookedDeals: 0,
@@ -35,10 +40,11 @@ export function useDealStore() {
   // Fetch all data from API
   const fetchData = useCallback(async () => {
     try {
+      const headers = authHeaders();
       const [dealsRes, metricsRes, ledgerRes] = await Promise.allSettled([
-        fetch(`${API_BASE}/api/deals`),
-        fetch(`${API_BASE}/api/metrics`),
-        fetch(`${API_BASE}/api/ledger`),
+        fetch(`${API_BASE}/api/deals`, { headers }),
+        fetch(`${API_BASE}/api/metrics`, { headers }),
+        fetch(`${API_BASE}/api/ledger`, { headers }),
       ]);
 
       let connected = false;

@@ -76,9 +76,10 @@ export function App() {
   // Review action handler — calls API then triggers refetch
   const onReviewAction = useCallback(async (dealId: string, action: "approve" | "reject", reason: string) => {
     try {
+      const key = import.meta.env.VITE_DUMONT_API_KEY ?? localStorage.getItem("DUMONT_API_KEY") ?? "";
       await fetch(`${API_BASE}/api/deals/${dealId}/review`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(key ? { Authorization: `Bearer ${key}` } : {}) },
         body: JSON.stringify({ action, reason }),
       });
     } catch {
