@@ -69,6 +69,23 @@ interface CountRow {
   count: number;
 }
 
+export interface GhostCandidate {
+  icaoHex: string;
+  tailNumber: string | null;
+  operatorName: string | null;
+  aircraftClass: string | null;
+  nearestAirport: string | null;
+  idleHours: number;
+  lastSeen: string;
+}
+
+export interface FleetStats {
+  airborne: number;
+  idleBase: number;
+  idleTransient: number;
+  total: number;
+}
+
 interface ClassCountRow {
   aircraft_class: string;
   count: number;
@@ -330,5 +347,109 @@ export class KnowledgeGraphStore {
       airportCount: this.getAirportCount(),
       classCounts: this.getClassBreakdown(),
     };
+  }
+
+  // ── ADS-B / Ghost Positioning queries ─────────────────────────────────
+
+  /**
+   * Check whether the adsb_aircraft_state table has any rows.
+   * Returns false if the table doesn't exist or is empty.
+   */
+  hasAdsbData(): boolean {
+    try {
+      const row = this.db
+        .prepare("SELECT COUNT(*) as count FROM adsb_aircraft_state")
+        .get() as CountRow;
+      return row.count > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Ghost candidates: aircraft idle at non-base airports near the given origin.
+   * These are aircraft sitting away from home — operators may discount
+   * empty-leg positioning if the trip takes the aircraft closer to base.
+   */
+  getGhostCandidates(
+    originIcao: string,
+    aircraftClass: string,
+    maxIdleHours = 48,
+  ): GhostCandidate[] {
+    // Find the origin airport coordinates
+    const origin = this.getAirport(originIcao);
+    if (!origin) return [];
+
+    // Get nearby airports (within 150nm) to form the candidate zone
+    const nearbyAirports = this.getAirportsNear(
+      origin.latitude,
+      origin.longitude,
+      150,
+      200,
+    );
+    const nearbyIcaos = new Set(nearbyAirports.map((a) => a.icaoCode));
+
+    try {
+      const rows = this.db
+        .prepare(
+          `SELECT icao_hex, tail_number, operator_name, aircraft_class, nearest_airport,
+                  idle_hours, last_seen
+           FROM adsb_aircraft_state
+           WHERE state = 'idle'
+             AND aircraft_class = ?
+             AND idle_hours <= ?
+             AND idle_hours > 0
+             AND nearest_airport IS NOT NULL
+           ORDER BY idle_hours DESC`,
+        )
+        .all(aircraftClass, maxIdleHours) as {
+        icao_hex: string;
+        tail_number: string | null;
+        operator_name: string | null;
+        aircraft_class: string | null;
+        nearest_airport: string | null;
+        idle_hours: number;
+        last_seen: string;
+      }[];
+
+      // Filter to candidates near the origin
+      return rows
+        .filter((r) => r.nearest_airport && nearbyIcaos.has(r.nearest_airport))
+        .map((r) => ({
+          icaoHex: r.icao_hex,
+          tailNumber: r.tail_number,
+          operatorName: r.operator_name,
+          aircraftClass: r.aircraft_class,
+          nearestAirport: r.nearest_airport,
+          idleHours: Math.round(r.idle_hours * 10) / 10,
+          lastSeen: r.last_seen,
+        }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Fleet stats for the Radar dashboard view.
+   */
+  getFleetStats(): FleetStats {
+    try {
+      const total = (
+        this.db.prepare("SELECT COUNT(*) as count FROM adsb_aircraft_state").get() as CountRow
+      ).count;
+      const airborne = (
+        this.db
+          .prepare("SELECT COUNT(*) as count FROM adsb_aircraft_state WHERE state = 'airborne'")
+          .get() as CountRow
+      ).count;
+      const idle = total - airborne;
+
+      // Transient = idle but NOT at their operator's home base
+      // For now, count all idle as transient since we don't have home base mapping yet
+      // (future: join on operator_profiles.home_base)
+      return { airborne, idleBase: 0, idleTransient: idle, total };
+    } catch {
+      return { airborne: 0, idleBase: 0, idleTransient: 0, total: 0 };
+    }
   }
 }

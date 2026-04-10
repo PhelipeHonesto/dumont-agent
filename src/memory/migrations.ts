@@ -388,6 +388,55 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_faa_airports_coords ON faa_airports(latitude, longitude);
     `,
   },
+  {
+    id: 14,
+    name: "create_adsb_tables",
+    sql: `
+      CREATE TABLE IF NOT EXISTS adsb_positions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        icao_hex TEXT NOT NULL,
+        tail_number TEXT,
+        callsign TEXT,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        altitude_ft REAL,
+        ground_speed_kts REAL,
+        heading REAL,
+        vertical_rate REAL,
+        on_ground INTEGER NOT NULL DEFAULT 0,
+        nearest_airport TEXT,
+        timestamp INTEGER NOT NULL,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_adsb_icao ON adsb_positions(icao_hex);
+      CREATE INDEX IF NOT EXISTS idx_adsb_timestamp ON adsb_positions(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_adsb_tail ON adsb_positions(tail_number);
+
+      CREATE TABLE IF NOT EXISTS adsb_aircraft_state (
+        icao_hex TEXT PRIMARY KEY,
+        tail_number TEXT,
+        operator_name TEXT,
+        aircraft_type TEXT,
+        aircraft_class TEXT,
+        state TEXT NOT NULL DEFAULT 'unknown',
+        latitude REAL,
+        longitude REAL,
+        nearest_airport TEXT,
+        idle_since TEXT,
+        idle_hours REAL DEFAULT 0,
+        last_seen TEXT NOT NULL,
+        last_leg_origin TEXT,
+        last_leg_destination TEXT,
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_adsb_state_class ON adsb_aircraft_state(aircraft_class);
+      CREATE INDEX IF NOT EXISTS idx_adsb_state_state ON adsb_aircraft_state(state);
+      CREATE INDEX IF NOT EXISTS idx_adsb_state_airport ON adsb_aircraft_state(nearest_airport);
+
+      ALTER TABLE faa_aircraft ADD COLUMN icao_hex TEXT;
+      CREATE INDEX IF NOT EXISTS idx_faa_aircraft_hex ON faa_aircraft(icao_hex);
+    `,
+  },
 ];
 
 /**

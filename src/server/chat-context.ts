@@ -159,6 +159,32 @@ export function buildChatContext(dealId?: string): string {
     // KG tables may not exist yet — skip silently
   }
 
+  // LIVE FLEET (ADS-B) — only if data exists, kept under 50 tokens
+  try {
+    const kgStore = kg();
+    if (kgStore.hasAdsbData()) {
+      const fleet = kgStore.getFleetStats();
+      lines.push("");
+      lines.push(`LIVE FLEET (ADS-B): ${fleet.total} tracked: ${fleet.airborne} airborne, ${fleet.idleTransient} idle transient (ghost inventory)`);
+
+      // If we have a deal with a specific origin, show ghost candidates
+      if (dealId) {
+        const deal = deals.find((d) => d.id === dealId);
+        if (deal?.route?.departure) {
+          const ghosts = kgStore.getGhostCandidates(
+            deal.route.departure,
+            deal.aircraftClass ?? "midsize",
+          );
+          if (ghosts.length > 0) {
+            lines.push(`  Ghost near ${deal.route.departure}: ${ghosts.length} idle ${deal.aircraftClass ?? "midsize"} aircraft`);
+          }
+        }
+      }
+    }
+  } catch {
+    // ADS-B tables may not exist yet — skip silently
+  }
+
   return lines.join("\n");
 }
 

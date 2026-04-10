@@ -12,6 +12,7 @@ import { healthRouter } from "./routes/health.js";
 import { vapiRouter } from "./routes/vapi-llm.js";
 import { dealsRouter } from "./routes/deals.js";
 import { chatRouter } from "./routes/chat.js";
+import { radarRouter } from "./routes/radar.js";
 import { closeDb } from "../memory/database.js";
 
 // ── Env Validation ──────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ app.use(healthRouter);
 app.use(vapiRouter);
 app.use(dealsRouter);
 app.use(chatRouter);
+app.use(radarRouter);
 
 // ── Global Error Handler ────────────────────────────────────────────────
 

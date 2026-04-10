@@ -16,5 +16,6 @@ export { DealEventLog } from "./deal-event-log.js";
 export type { DealEvent, DealEventType } from "./deal-event-log.js";
 export { WebhookDedup } from "./webhook-dedup.js";
 export { KnowledgeGraphStore } from "./knowledge-graph.js";
+export type { GhostCandidate, FleetStats } from "./knowledge-graph.js";
 export { getDb, closeDb, createTestDb } from "./database.js";
 export { runMigrations } from "./migrations.js";

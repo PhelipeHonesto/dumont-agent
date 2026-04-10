@@ -14,7 +14,8 @@
     "dashboard:build": "cd dashboard && npx vite build",
     "typecheck": "tsc --noEmit",
     "server": "npx tsx src/server/index.ts",
-    "ingest:faa": "tsx src/ingestion/faa-ingest.ts"
+    "ingest:faa": "tsx src/ingestion/faa-ingest.ts",
+    "opensky": "tsx src/ingestion/opensky-worker.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
