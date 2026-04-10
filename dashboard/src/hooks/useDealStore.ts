@@ -55,8 +55,10 @@ export function useDealStore() {
 
       if (dealsRes.status === "fulfilled" && dealsRes.value.ok) {
         const data = await dealsRes.value.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setDeals(data);
+        // API returns { deals: [...] } — unwrap
+        const dealsList = Array.isArray(data) ? data : data?.deals;
+        if (Array.isArray(dealsList) && dealsList.length > 0) {
+          setDeals(dealsList);
           connected = true;
         }
       }
@@ -82,15 +84,19 @@ export function useDealStore() {
 
       if (benchmarksRes.status === "fulfilled" && benchmarksRes.value.ok) {
         const data = await benchmarksRes.value.json();
-        if (data && typeof data === "object") {
-          setBenchmarks(data);
+        // API returns { benchmarks: {...} } — unwrap
+        const bm = data?.benchmarks ?? data;
+        if (bm && typeof bm === "object" && bm.ghostSpread) {
+          setBenchmarks(bm);
         }
       }
 
       if (operatorsRes.status === "fulfilled" && operatorsRes.value.ok) {
         const data = await operatorsRes.value.json();
-        if (Array.isArray(data)) {
-          setOperators(data);
+        // API returns { operators: [...] } — unwrap
+        const ops = Array.isArray(data) ? data : data?.operators;
+        if (Array.isArray(ops)) {
+          setOperators(ops);
         }
       }
 

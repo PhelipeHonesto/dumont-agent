@@ -247,13 +247,12 @@ export type TripOutcome = "completed" | "disruption_recovered" | "disruption_fai
 
 export interface BenchmarkMetrics {
   ghostSpread: { totalCents: number; dealCount: number; avgPerDeal: number };
-  signalRatio: { ratio: number; rfqsSent: number; quotesReceived: number };
-  marginByLiquidity: { high: number | null; low: number | null };
-  fleetResilience: { completionRate: number; recoveriesUsed: number; avgRecoveryMin: number };
-  decisionVelocity: { avgMin: number };
-  networkDensity: { operators: number; perMetro: number };
+  signalRatio: { rfqsSent: number; quotesReceived: number; ratio: number };
+  marginByLiquidity: { high: number | null; medium: number | null; low: number | null };
   pricingAccuracy: { avgAbsDeltaPct: number; sampleSize: number };
-  financial: { totalRevenueCents: number; avgMarginPct: number; totalDeals: number; bookedDeals: number; winRate: number };
+  avgClientDecisionMin: number | null;
+  networkDensity: { avgOperatorsInNetwork: number | null; avgOperatorsInMetro: number | null };
+  fleetResilience: { recoveredCount: number; failedCount: number; avgRecoveryMin: number | null };
 }
 
 // ── Operator Profile (mirrors composite-objects.ts OperatorProfile) ─────

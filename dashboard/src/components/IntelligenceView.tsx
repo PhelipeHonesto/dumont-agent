@@ -157,21 +157,21 @@ export function IntelligenceView({ entries, summary, benchmarks, operators, onEx
         {/* 1. Ghost Positioning */}
         <BenchmarkCard
           label="Ghost Positioning"
-          value={benchmarks ? fmtCents(benchmarks.ghostSpread.totalCents) : "\u2014"}
+          value={benchmarks?.ghostSpread?.totalCents ? fmtCents(benchmarks.ghostSpread.totalCents) : "\u2014"}
           valueColor="var(--green)"
-          subtitle={benchmarks ? `${benchmarks.ghostSpread.dealCount} deals with ghost capture` : "Close deals to populate"}
+          subtitle={benchmarks?.ghostSpread ? `${benchmarks.ghostSpread.dealCount} deals with ghost capture` : "Close deals to populate"}
         />
         {/* 2. Signal Ratio */}
         <BenchmarkCard
           label="Signal Ratio"
-          value={benchmarks ? `${(benchmarks.signalRatio.ratio * 100).toFixed(1)}%` : "\u2014"}
+          value={benchmarks?.signalRatio ? `${(benchmarks.signalRatio.ratio * 100).toFixed(1)}%` : "\u2014"}
           valueColor="var(--green)"
-          subtitle={benchmarks ? `vs 2.5% industry (${benchmarks.signalRatio.rfqsSent}x)` : "Close deals to populate"}
+          subtitle={benchmarks?.signalRatio ? `${benchmarks.signalRatio.quotesReceived}/${benchmarks.signalRatio.rfqsSent} RFQs` : "Close deals to populate"}
         />
         {/* 3. Margin by Liquidity */}
         <BenchmarkCard
           label="Margin by Liquidity"
-          value={benchmarks
+          value={benchmarks?.marginByLiquidity
             ? `${benchmarks.marginByLiquidity.high != null ? (benchmarks.marginByLiquidity.high * 100).toFixed(1) : "\u2014"}% liquid / ${benchmarks.marginByLiquidity.low != null ? (benchmarks.marginByLiquidity.low * 100).toFixed(1) : "\u2014"}% constrained`
             : "\u2014"}
           subtitle={!benchmarks ? "Close deals to populate" : undefined}
@@ -179,28 +179,37 @@ export function IntelligenceView({ entries, summary, benchmarks, operators, onEx
         {/* 4. Fleet Resilience */}
         <BenchmarkCard
           label="Fleet Resilience"
-          value={benchmarks ? `${(benchmarks.fleetResilience.completionRate * 100).toFixed(1)}%` : "\u2014"}
-          subtitle={benchmarks ? `${benchmarks.fleetResilience.recoveriesUsed} recoveries` : "Close deals to populate"}
+          value={benchmarks?.fleetResilience
+            ? (() => {
+                const { recoveredCount, failedCount } = benchmarks.fleetResilience;
+                const total = recoveredCount + failedCount;
+                const rate = total > 0 ? ((total - failedCount) / total * 100).toFixed(1) : "100.0";
+                return `${rate}%`;
+              })()
+            : "\u2014"}
+          subtitle={benchmarks?.fleetResilience ? `${benchmarks.fleetResilience.recoveredCount} recoveries` : "Close deals to populate"}
         />
         {/* 5. Decision Velocity */}
         <BenchmarkCard
           label="Decision Velocity"
-          value={benchmarks ? `${benchmarks.decisionVelocity.avgMin.toFixed(0)}m` : "\u2014"}
-          valueColor={benchmarks ? velocityColor(benchmarks.decisionVelocity.avgMin) : undefined}
+          value={benchmarks?.avgClientDecisionMin != null ? `${benchmarks.avgClientDecisionMin.toFixed(0)}m` : "\u2014"}
+          valueColor={benchmarks?.avgClientDecisionMin != null ? velocityColor(benchmarks.avgClientDecisionMin) : undefined}
           subtitle={!benchmarks ? "Close deals to populate" : undefined}
         />
         {/* 6. Network Density */}
         <BenchmarkCard
           label="Network Density"
-          value={benchmarks ? `${benchmarks.networkDensity.operators} operators / ${benchmarks.networkDensity.perMetro} per metro` : "\u2014"}
+          value={benchmarks?.networkDensity
+            ? `${benchmarks.networkDensity.avgOperatorsInNetwork ?? "\u2014"} operators / ${benchmarks.networkDensity.avgOperatorsInMetro ?? "\u2014"} per metro`
+            : "\u2014"}
           subtitle={!benchmarks ? "Close deals to populate" : undefined}
         />
         {/* 7. Pricing Accuracy */}
         <BenchmarkCard
           label="Pricing Accuracy"
-          value={benchmarks ? `\u00B1${benchmarks.pricingAccuracy.avgAbsDeltaPct.toFixed(1)}%` : "\u2014"}
-          valueColor={benchmarks ? accuracyColor(benchmarks.pricingAccuracy.avgAbsDeltaPct) : undefined}
-          subtitle={benchmarks ? `${benchmarks.pricingAccuracy.sampleSize} sample deals` : "Close deals to populate"}
+          value={benchmarks?.pricingAccuracy ? `\u00B1${benchmarks.pricingAccuracy.avgAbsDeltaPct.toFixed(1)}%` : "\u2014"}
+          valueColor={benchmarks?.pricingAccuracy ? accuracyColor(benchmarks.pricingAccuracy.avgAbsDeltaPct) : undefined}
+          subtitle={benchmarks?.pricingAccuracy ? `${benchmarks.pricingAccuracy.sampleSize} sample deals` : "Close deals to populate"}
         />
       </div>
 
