@@ -17,7 +17,8 @@
     "ingest:faa": "tsx src/ingestion/faa-ingest.ts",
     "ingest:icao": "tsx src/ingestion/icao-hex-ingest.ts",
     "opensky": "tsx src/ingestion/opensky-worker.ts",
-    "ingest:history": "tsx src/ingestion/adsblol-ingest.ts"
+    "ingest:history": "tsx src/ingestion/adsblol-ingest.ts",
+    "ingest:parquet": "tsx src/ingestion/parquet-ingest.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
