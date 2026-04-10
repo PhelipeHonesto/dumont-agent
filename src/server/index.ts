@@ -72,6 +72,15 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`[dumont] Server running on port ${PORT}`);
 });
 
+// Start OpenSky ADS-B worker in-process (disable with ENABLE_OPENSKY=false)
+if (process.env.ENABLE_OPENSKY !== "false") {
+  setTimeout(() => {
+    import("../ingestion/opensky-worker.js")
+      .then((m) => m.startWorker?.())
+      .catch((err) => console.warn(`[opensky] Failed to start: ${err instanceof Error ? err.message : String(err)}`));
+  }, 5000);
+}
+
 function shutdown() {
   console.log("[dumont] Shutting down gracefully...");
   server.close(() => {

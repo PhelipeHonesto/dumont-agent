@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "server": "npx tsx src/server/index.ts",
     "ingest:faa": "tsx src/ingestion/faa-ingest.ts",
+    "ingest:icao": "tsx src/ingestion/icao-hex-ingest.ts",
     "opensky": "tsx src/ingestion/opensky-worker.ts"
   },
   "dependencies": {
