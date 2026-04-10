@@ -54,9 +54,9 @@ export const BASE_PROMPT = `You are Dumont, the AI deal engine for Orange Sunshi
 
 /**
  * Build token-optimized context from SQLite stores.
- * Dense text format — under 500 tokens total.
+ * Dense text format. Detects ICAO codes in user message for airport-specific queries.
  */
-export function buildChatContext(dealId?: string): string {
+export function buildChatContext(dealId?: string, userMessage?: string): string {
   const lines: string[] = [];
 
   // ACTIVE PIPELINE — one line
@@ -214,6 +214,56 @@ export function buildChatContext(dealId?: string): string {
     }
   } catch {
     // ADS-B tables may not exist yet — skip silently
+  }
+
+  // AIRPORT-SPECIFIC QUERIES — detect ICAO codes in user message
+  if (userMessage) {
+    const icaoCodes = userMessage.match(/\bK[A-Z]{3}\b/g);
+    if (icaoCodes && icaoCodes.length > 0) {
+      const seen = new Set<string>();
+      try {
+        const db = getDb();
+        for (const icao of icaoCodes) {
+          if (seen.has(icao)) continue;
+          seen.add(icao);
+
+          // Charter departures/arrivals by class
+          const deps = db.prepare(`
+            SELECT aircraft_class, COUNT(*) as cnt FROM adsb_completed_legs
+            WHERE origin_icao = ? AND aircraft_class IS NOT NULL GROUP BY aircraft_class
+          `).all(icao) as { aircraft_class: string; cnt: number }[];
+          const arrs = db.prepare(`
+            SELECT COUNT(*) as cnt FROM adsb_completed_legs
+            WHERE destination_icao = ? AND aircraft_class IS NOT NULL
+          `).get(icao) as { cnt: number } | undefined;
+
+          // Idle charter aircraft at this airport
+          const idle = db.prepare(`
+            SELECT tail_number, aircraft_type, aircraft_class, idle_hours
+            FROM adsb_aircraft_state
+            WHERE nearest_airport = ? AND state != 'airborne' AND aircraft_class IS NOT NULL
+            ORDER BY idle_hours DESC LIMIT 5
+          `).all(icao) as { tail_number: string | null; aircraft_type: string | null; aircraft_class: string | null; idle_hours: number }[];
+
+          if (deps.length > 0 || (arrs?.cnt ?? 0) > 0 || idle.length > 0) {
+            lines.push("");
+            lines.push(`${icao} ACTIVITY:`);
+            if (deps.length > 0) {
+              const totalDeps = deps.reduce((s, d) => s + d.cnt, 0);
+              const breakdown = deps.map((d) => `${d.cnt} ${d.aircraft_class}`).join(", ");
+              lines.push(`  Charter departures: ${totalDeps} (${breakdown})`);
+            }
+            if (arrs?.cnt) lines.push(`  Charter arrivals: ${arrs.cnt}`);
+            if (idle.length > 0) {
+              const idleDesc = idle.map((a) => `${a.tail_number ?? a.aircraft_type ?? "?"} ${a.aircraft_class} idle ${a.idle_hours.toFixed(1)}h`).join(", ");
+              lines.push(`  Idle charter aircraft: ${idle.length} (${idleDesc})`);
+            }
+          }
+        }
+      } catch {
+        // Query failed — skip
+      }
+    }
   }
 
   return lines.join("\n");

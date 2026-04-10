@@ -28,7 +28,7 @@ chatRouter.post("/api/chat", validateBody(ChatBodySchema), async (req: Request, 
   const { message, dealId } = req.body;
 
   // Build token-optimized context
-  const context = buildChatContext(dealId);
+  const context = buildChatContext(dealId, message);
   const systemPrompt = `${BASE_PROMPT}\n\n${context}`;
 
   // Log estimated input tokens
