@@ -113,7 +113,7 @@ export function ChatView({ messages, setMessages, dealId, apiUrl }: Props) {
   }, [input, streaming, dealId, apiUrl]);
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#0A0A0A" }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg)" }}>
       {/* Header */}
       <div style={{ padding: "8px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--osa-orange)", letterSpacing: 1 }}>DUMONT AI</span>
@@ -148,7 +148,7 @@ export function ChatView({ messages, setMessages, dealId, apiUrl }: Props) {
       </div>
 
       {/* Input */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 20px", borderTop: "1px solid var(--border)", background: "#0A0A0A" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 20px", borderTop: "1px solid var(--border)", background: "var(--bg)" }}>
         <span style={{ color: "var(--osa-orange)", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700 }}>{">"}</span>
         <input
           ref={inputRef}

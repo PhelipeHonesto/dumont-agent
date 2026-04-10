@@ -4,6 +4,7 @@
  */
 
 import type { ValidationLedgerEntry, LedgerSummary } from "../types";
+import { fmtPrice, fmtPct } from "../utils";
 
 interface Props {
   entries: ValidationLedgerEntry[];
@@ -42,18 +43,6 @@ function outcomeColor(outcome: string): string {
   if (outcome === "lost_timing") return "var(--amber)";
   if (outcome === "lost_ghosted") return "var(--text-muted)";
   return "var(--text-secondary)";
-}
-
-// ── Format helpers ────────────────────────────────────────────────────────
-
-function fmtMoney(n: number | null): string {
-  if (n == null) return "\u2014";
-  return `$${n.toLocaleString()}`;
-}
-
-function fmtPctLocal(n: number | null): string {
-  if (n == null) return "\u2014";
-  return `${(n * 100).toFixed(1)}%`;
 }
 
 // ── Main component ────────────────────────────────────────────────────────
@@ -143,10 +132,10 @@ export function IntelligenceView({ entries, summary, onExportCSV }: Props) {
                   <td style={tdStyle}>{entry.date}</td>
                   <td style={tdStyle}>{entry.leadTimeHours}h</td>
                   <td style={tdStyle}>{entry.rliAtQuote}</td>
-                  <td style={tdStyle}>{fmtMoney(entry.dumontPhysicsEstimate)}</td>
-                  <td style={tdStyle}>{fmtMoney(entry.operatorQuotedPrice)}</td>
-                  <td style={tdStyle}>{fmtMoney(entry.osaClientPrice)}</td>
-                  <td style={tdStyle}>{fmtPctLocal(entry.realizedMarginPct)}</td>
+                  <td style={tdStyle}>{fmtPrice(entry.dumontPhysicsEstimate)}</td>
+                  <td style={tdStyle}>{fmtPrice(entry.operatorQuotedPrice)}</td>
+                  <td style={tdStyle}>{fmtPrice(entry.osaClientPrice)}</td>
+                  <td style={tdStyle}>{fmtPct(entry.realizedMarginPct)}</td>
                   <td style={tdStyle}>{entry.operatorResponseMinutes != null ? `${entry.operatorResponseMinutes}m` : "\u2014"}</td>
                   <td style={{ ...tdStyle, color: outcomeColor(entry.outcome), fontWeight: 600 }}>{entry.outcome}</td>
                   <td style={{ ...tdStyle, whiteSpace: "normal", maxWidth: 200, fontSize: 10, color: "var(--text-muted)" }}>{entry.notes || "\u2014"}</td>

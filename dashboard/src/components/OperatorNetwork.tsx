@@ -13,8 +13,8 @@ type SortKey = "conversion" | "responseTime" | "deals";
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = max > 0 ? (value / max) * 100 : 0;
   return (
-    <div style={{ width: "100%", height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
-      <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 3, transition: "width 0.3s" }} />
+    <div style={{ width: "100%", height: 6, background: "var(--border)", borderRadius: 4, overflow: "hidden" }}>
+      <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 4, transition: "width 0.3s" }} />
     </div>
   );
 }
@@ -68,7 +68,7 @@ export function OperatorNetwork({ operators, onFilterByOperator, activeFilter }:
               aria-label={`Sort by ${label}`}
               aria-pressed={sortBy === key}
               style={{
-                padding: "2px 6px", borderRadius: 3, border: "none",
+                padding: "2px 6px", borderRadius: 4, border: "none",
                 fontSize: 9, fontFamily: "var(--font-mono)", fontWeight: 500,
                 background: sortBy === key ? "var(--osa-orange)" : "var(--surface-hover)",
                 color: sortBy === key ? "#fff" : "var(--text-muted)",

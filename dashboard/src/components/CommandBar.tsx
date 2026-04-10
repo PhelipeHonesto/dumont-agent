@@ -217,7 +217,7 @@ export function CommandBar({ callbacks, terminalOpen, onToggleTerminal }: Props)
       {terminalOpen && (
         <div role="log" aria-label="Terminal output" style={{
           maxHeight: 200, overflow: "auto", padding: "8px 20px",
-          background: "#0a0a0a", borderTop: "1px solid var(--border)",
+          background: "var(--bg)", borderTop: "1px solid var(--border)",
           fontFamily: "var(--font-mono)", fontSize: 11, lineHeight: 1.6,
           animation: "fadeIn 0.15s ease-out",
         }}>
@@ -251,6 +251,7 @@ export function CommandBar({ callbacks, terminalOpen, onToggleTerminal }: Props)
         <span style={{ color: "var(--osa-orange)", fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, userSelect: "none" }} aria-hidden="true">{">"}</span>
         <input
           ref={inputRef}
+          data-command-input
           type="text"
           value={input}
           onChange={onChange}
@@ -276,8 +277,8 @@ export function CommandBar({ callbacks, terminalOpen, onToggleTerminal }: Props)
         {showAutocomplete && filtered.length > 0 && (
           <div role="listbox" aria-label="Command suggestions" style={{
             position: "absolute", bottom: "100%", left: 20, right: 20,
-            background: "#0e0e0e", border: "1px solid var(--border)",
-            borderRadius: "6px 6px 0 0", maxHeight: 240, overflow: "auto",
+            background: "var(--bg)", border: "1px solid var(--border)",
+            borderRadius: "4px 4px 0 0", maxHeight: 240, overflow: "auto",
             zIndex: 100, boxShadow: "0 -4px 12px rgba(0,0,0,0.4)",
           }}>
             {(() => {
@@ -300,7 +301,7 @@ export function CommandBar({ callbacks, terminalOpen, onToggleTerminal }: Props)
                       style={{
                         display: "flex", justifyContent: "space-between", padding: "5px 12px",
                         cursor: "pointer", fontSize: 11, fontFamily: "var(--font-mono)",
-                        background: i === acIndex ? "rgba(231,75,29,0.12)" : "transparent",
+                        background: i === acIndex ? "var(--surface-active)" : "transparent",
                         color: i === acIndex ? "var(--osa-orange)" : "var(--text-secondary)",
                       }}
                     >

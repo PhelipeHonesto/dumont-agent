@@ -11,7 +11,7 @@ interface Metrics {
 function Card({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div style={{
-      padding: "12px 14px", borderRadius: 6,
+      padding: "12px 14px", borderRadius: 4,
       background: "var(--surface-hover)", flex: 1, minWidth: 110,
     }}>
       <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>

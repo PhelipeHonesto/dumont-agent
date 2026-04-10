@@ -45,7 +45,7 @@ function StageBar({ stage }: { stage: DealStage }) {
             title={s.full}
             aria-label={`${s.full}: ${done ? "complete" : active ? "current" : "pending"}`}
             style={{
-              width: 28, height: 18, borderRadius: 3,
+              width: 28, height: 18, borderRadius: 4,
               background: bg, opacity,
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 8, fontWeight: 600, fontFamily: "var(--font-mono)",
@@ -163,7 +163,7 @@ export function PipelineView({ deals, selectedId, onSelect, loading }: Props) {
 
       {loading ? (
         <div style={{ padding: "0 8px" }}>
-          {[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 72, marginBottom: 4, borderRadius: 6 }} />)}
+          {[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 72, marginBottom: 4, borderRadius: 4 }} />)}
         </div>
       ) : deals.length === 0 ? (
         <EmptyState />
@@ -190,7 +190,7 @@ export function PipelineView({ deals, selectedId, onSelect, loading }: Props) {
                 onKeyDown={(e) => { if (e.key === "Enter") onSelect(deal.id); }}
                 style={{
                   display: "flex", flexDirection: "column", gap: 5,
-                  padding: "10px 12px", borderRadius: 6, border: "none",
+                  padding: "10px 12px", borderRadius: 4, border: "none",
                   background: selected ? "var(--surface-active)" : "transparent",
                   borderLeft: isReview ? "3px solid var(--amber)" : undefined,
                   cursor: "pointer", textAlign: "left", width: "100%",
@@ -211,7 +211,7 @@ export function PipelineView({ deals, selectedId, onSelect, loading }: Props) {
                       <span style={{
                         fontSize: 9, fontWeight: 700, fontFamily: "var(--font-mono)",
                         color: "#000", background: "var(--amber)",
-                        padding: "1px 5px", borderRadius: 3, letterSpacing: 0.5,
+                        padding: "1px 5px", borderRadius: 4, letterSpacing: 0.5,
                       }}>
                         REVIEW REQUIRED
                       </span>
@@ -222,8 +222,8 @@ export function PipelineView({ deals, selectedId, onSelect, loading }: Props) {
                     <span style={{
                       fontSize: 10, fontFamily: "var(--font-mono)", fontWeight: 500,
                       color: deal.mode === "live" ? "var(--osa-orange)" : "var(--text-muted)",
-                      background: deal.mode === "live" ? "rgba(231,75,29,0.1)" : "var(--surface-hover)",
-                      padding: "1px 5px", borderRadius: 3,
+                      background: deal.mode === "live" ? "var(--surface-active)" : "var(--surface-hover)",
+                      padding: "1px 5px", borderRadius: 4,
                     }}>
                       {deal.mode.toUpperCase()}
                     </span>

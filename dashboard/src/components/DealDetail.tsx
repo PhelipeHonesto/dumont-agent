@@ -3,6 +3,7 @@
  * Shows pipeline progress with next-step hint and Guardian alerts.
  */
 
+import { useState } from "react";
 import type { DealContext, GuardianPass, GuardianCheck } from "../types";
 import { ShieldCheck, ShieldAlert, ShieldX, Clock, Plane } from "./Icons";
 import { fmtPrice, fmtDuration, fmtRelative, fmtPct, nextStep, timerRemaining, timerLevel } from "../utils";
@@ -56,7 +57,7 @@ function GuardianAlerts({ passes }: { passes: GuardianPass[] }) {
             role="listitem"
             style={{
               padding: "6px 8px", borderRadius: 4, fontSize: 11,
-              background: isCrit ? "rgba(220,38,38,0.08)" : "rgba(245,158,11,0.08)",
+              background: isCrit ? "rgba(239,68,68,0.08)" : "rgba(245,158,11,0.08)",
               borderLeft: `3px solid ${isCrit ? "var(--osa-red)" : "var(--amber)"}`,
               color: "var(--text-primary)", display: "flex", alignItems: "flex-start", gap: 6,
             }}
@@ -86,7 +87,7 @@ function StageTimeline({ deal }: { deal: DealContext }) {
           role="listitem"
           aria-label={`${h.stage}${h.duration != null ? `, ${Math.round(h.duration / 1000)} seconds` : ""}`}
           style={{
-            padding: "3px 6px", borderRadius: 3, fontSize: 10,
+            padding: "3px 6px", borderRadius: 4, fontSize: 10,
             fontFamily: "var(--font-mono)", fontWeight: 500,
             background: h.stage === deal.stage ? "var(--osa-orange)" : "var(--surface-hover)",
             color: h.stage === deal.stage ? "#fff" : "var(--text-muted)",
@@ -191,6 +192,9 @@ interface DealDetailProps {
 }
 
 export function DealDetail({ deal, onReviewAction }: DealDetailProps) {
+  const [reviewMode, setReviewMode] = useState<"approve" | "reject" | null>(null);
+  const [reviewReason, setReviewReason] = useState("");
+
   if (!deal) return <EmptyDetail />;
 
   const next = nextStep(deal);
@@ -247,20 +251,61 @@ export function DealDetail({ deal, onReviewAction }: DealDetailProps) {
           )}
           {/* Inline approve/reject */}
           {onReviewAction && (
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <button
-                onClick={() => { const r = window.prompt("Approve reason:"); if (r != null) onReviewAction(deal.id, "approve", r); }}
-                style={{ padding: "6px 16px", border: "none", borderRadius: 3, cursor: "pointer", background: "var(--green)", color: "#fff", fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)" }}
-              >
-                APPROVE
-              </button>
-              <button
-                onClick={() => { const r = window.prompt("Reject reason:"); if (r != null) onReviewAction(deal.id, "reject", r); }}
-                style={{ padding: "6px 16px", border: "none", borderRadius: 3, cursor: "pointer", background: "var(--osa-red)", color: "#fff", fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)" }}
-              >
-                REJECT
-              </button>
-              <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)", alignSelf: "center" }}>⌘↵ approve · ⌘⌫ reject</span>
+            <div style={{ marginTop: 8 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => { setReviewMode("approve"); setReviewReason(""); }}
+                  style={{ padding: "6px 16px", borderRadius: 4, cursor: "pointer", background: reviewMode === "approve" ? "var(--green)" : "var(--surface-hover)", color: reviewMode === "approve" ? "#fff" : "var(--green)", fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)", border: reviewMode === "approve" ? "none" : "1px solid var(--green)" }}
+                >
+                  APPROVE
+                </button>
+                <button
+                  onClick={() => { setReviewMode("reject"); setReviewReason(""); }}
+                  style={{ padding: "6px 16px", borderRadius: 4, cursor: "pointer", background: reviewMode === "reject" ? "var(--osa-red)" : "var(--surface-hover)", color: reviewMode === "reject" ? "#fff" : "var(--osa-red)", fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)", border: reviewMode === "reject" ? "none" : "1px solid var(--osa-red)" }}
+                >
+                  REJECT
+                </button>
+                <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)", alignSelf: "center" }}>⌘↵ approve · ⌘⌫ reject</span>
+              </div>
+              {reviewMode && (
+                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                  <textarea
+                    value={reviewReason}
+                    onChange={(e) => setReviewReason(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        onReviewAction(deal.id, reviewMode, reviewReason || `${reviewMode === "approve" ? "Approved" : "Rejected"} by broker`);
+                        setReviewMode(null);
+                        setReviewReason("");
+                      }
+                      if (e.key === "Escape") { setReviewMode(null); setReviewReason(""); }
+                    }}
+                    placeholder={`${reviewMode === "approve" ? "Approve" : "Reject"} reason (Enter to submit, Esc to cancel)...`}
+                    autoFocus
+                    style={{
+                      width: "100%", minHeight: 48, padding: 8, borderRadius: 4,
+                      border: `1px solid ${reviewMode === "approve" ? "var(--green)" : "var(--osa-red)"}`,
+                      background: "var(--surface)", color: "var(--text-primary)",
+                      fontSize: 11, fontFamily: "var(--font-mono)", resize: "vertical", outline: "none",
+                    }}
+                  />
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={() => { onReviewAction(deal.id, reviewMode, reviewReason || `${reviewMode === "approve" ? "Approved" : "Rejected"} by broker`); setReviewMode(null); setReviewReason(""); }}
+                      style={{ padding: "4px 12px", borderRadius: 4, border: "none", cursor: "pointer", background: reviewMode === "approve" ? "var(--green)" : "var(--osa-red)", color: "#fff", fontSize: 10, fontWeight: 600, fontFamily: "var(--font-mono)" }}
+                    >
+                      Submit
+                    </button>
+                    <button
+                      onClick={() => { setReviewMode(null); setReviewReason(""); }}
+                      style={{ padding: "4px 12px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 10, cursor: "pointer", fontFamily: "var(--font-mono)" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

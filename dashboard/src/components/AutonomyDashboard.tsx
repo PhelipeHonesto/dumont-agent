@@ -13,6 +13,12 @@ const STATUS_COLORS: Record<string, string> = {
   Autonomous: "var(--green)", Delayed: "var(--amber)", Manual: "var(--text-muted)",
 };
 
+const STATUS_BG: Record<string, string> = {
+  Autonomous: "rgba(34, 197, 94, 0.1)",
+  Delayed: "rgba(245, 158, 11, 0.1)",
+  Manual: "rgba(82, 82, 91, 0.1)",
+};
+
 function ProgressBar({ current, target }: { current: number; target: number }) {
   const pct = Math.min((current / target) * 100, 100);
   const color = pct >= 100 ? "var(--green)" : pct >= 50 ? "var(--amber)" : "var(--text-muted)";
@@ -66,15 +72,15 @@ export function AutonomyDashboard({ rules, onPromote, onDemote }: Props) {
                   <td style={{ padding: "8px 10px" }}><ProgressBar current={rule.currentApprovals} target={rule.autoSendAfter} /></td>
                   <td style={{ padding: "8px 10px", fontFamily: "var(--font-mono)", color: rule.editRate > 0.3 ? "var(--osa-red)" : "var(--text-muted)" }}>{(rule.editRate * 100).toFixed(0)}%</td>
                   <td style={{ padding: "8px 10px" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 3, background: `${STATUS_COLORS[status]}20`, color: STATUS_COLORS[status] }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 4, background: STATUS_BG[status] ?? "transparent", color: STATUS_COLORS[status] }}>
                       {status}
                     </span>
                   </td>
                   <td style={{ padding: "8px 10px" }}>
                     {rule.autoSendEnabled ? (
-                      <button onClick={() => onDemote?.(rule.channel, rule.intent, rule.recipientType)} aria-label={`Demote ${rule.intent} autonomy`} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 3, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer" }}>Demote</button>
+                      <button onClick={() => onDemote?.(rule.channel, rule.intent, rule.recipientType)} aria-label={`Demote ${rule.intent} autonomy`} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer" }}>Demote</button>
                     ) : rule.currentApprovals >= rule.autoSendAfter ? (
-                      <button onClick={() => onPromote?.(rule.channel, rule.intent, rule.recipientType)} aria-label={`Promote ${rule.intent} to autonomous`} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 3, border: "1px solid var(--green)", background: "transparent", color: "var(--green)", cursor: "pointer" }}>Promote</button>
+                      <button onClick={() => onPromote?.(rule.channel, rule.intent, rule.recipientType)} aria-label={`Promote ${rule.intent} to autonomous`} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--green)", background: "transparent", color: "var(--green)", cursor: "pointer" }}>Promote</button>
                     ) : null}
                   </td>
                 </tr>

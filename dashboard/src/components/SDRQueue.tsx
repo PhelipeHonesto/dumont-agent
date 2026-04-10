@@ -57,7 +57,7 @@ export function SDRQueue({ items, onSelectDeal }: Props) {
                   key={item.id}
                   onClick={() => item.dealId && onSelectDeal?.(item.dealId)}
                   style={{
-                    padding: "8px 10px", borderRadius: 6, background: "var(--surface-hover)",
+                    padding: "8px 10px", borderRadius: 4, background: "var(--surface-hover)",
                     marginBottom: 4, cursor: item.dealId ? "pointer" : "default",
                     borderLeft: `3px solid ${col.color}`, animation: "fadeIn 0.2s ease-out",
                   }}
@@ -66,7 +66,7 @@ export function SDRQueue({ items, onSelectDeal }: Props) {
                   <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-muted)", marginTop: 2 }}>{item.route}</div>
                   <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>{item.reason}</div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                    <span style={{ fontSize: 9, fontFamily: "var(--font-mono)", padding: "1px 4px", borderRadius: 2, background: item.draftStatus === "auto" ? "rgba(231,75,29,0.1)" : "var(--surface)", color: item.draftStatus === "auto" ? "var(--osa-orange)" : "var(--text-muted)" }}>
+                    <span style={{ fontSize: 9, fontFamily: "var(--font-mono)", padding: "1px 4px", borderRadius: 2, background: item.draftStatus === "auto" ? "var(--surface-active)" : "var(--surface)", color: item.draftStatus === "auto" ? "var(--osa-orange)" : "var(--text-muted)" }}>
                       {item.draftStatus}
                     </span>
                     <span style={{ fontSize: 9, color: "var(--text-muted)" }}>{fmtRelative(item.receivedAt)}</span>

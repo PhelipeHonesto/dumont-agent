@@ -54,7 +54,7 @@ export function DraftApproval({ draft, onApprove, onDiscard }: Props) {
 
   return (
     <div aria-live="polite" aria-label="Draft approval" style={{
-      padding: 12, borderRadius: 6, background: "var(--surface-hover)",
+      padding: 12, borderRadius: 4, background: "var(--surface-hover)",
       border: "1px solid var(--border)", marginBottom: 12,
     }}>
       {/* Header */}
@@ -62,12 +62,12 @@ export function DraftApproval({ draft, onApprove, onDiscard }: Props) {
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <FileText size={14} color="var(--osa-orange)" />
           <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>Draft Ready</span>
-          <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: levelColor, color: "#fff", fontWeight: 600 }}>
+          <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: levelColor, color: "#fff", fontWeight: 600 }}>
             {draft.confidenceLevel?.toUpperCase() ?? "LOW"}
           </span>
           {draft.wasRevised && (
             <button onClick={() => setShowOriginal(!showOriginal)} aria-label="Toggle original draft" style={{
-              fontSize: 9, padding: "1px 5px", borderRadius: 3, border: "1px solid var(--amber)",
+              fontSize: 9, padding: "1px 5px", borderRadius: 4, border: "1px solid var(--amber)",
               background: "transparent", color: "var(--amber)", cursor: "pointer", fontFamily: "var(--font-mono)",
             }}>
               Evaluator revised

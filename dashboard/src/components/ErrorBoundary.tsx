@@ -34,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
             onClick={() => this.setState({ error: null })}
             aria-label="Retry loading dashboard"
             style={{
-              padding: "8px 20px", borderRadius: 6, border: "none",
+              padding: "8px 20px", borderRadius: 4, border: "none",
               background: "var(--osa-orange)", color: "#fff",
               fontSize: 12, fontWeight: 600, cursor: "pointer",
             }}

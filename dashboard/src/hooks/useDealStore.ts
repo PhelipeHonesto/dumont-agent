@@ -111,7 +111,7 @@ export function useDealStore() {
   }, []);
 
   const filteredDeals = useMemo(
-    () => (mode === "live" ? deals : deals).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    () => deals.filter((d) => d.mode === mode).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [deals, mode],
   );
 

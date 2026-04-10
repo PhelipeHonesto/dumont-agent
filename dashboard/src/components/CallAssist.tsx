@@ -9,7 +9,7 @@ interface Chunk { speaker: string; text: string; timestampMs: number; isFinal: b
 interface CallBrief { route: string; date: string; pax: number; estimateRange: string; operatorName: string; talkingPoints: string[]; }
 
 const ENTITY_COLORS: Record<string, string> = {
-  price: "var(--green)", aircraft_type: "#60a5fa", tail_number: "#a78bfa",
+  price: "var(--green)", aircraft_type: "var(--color-info)", tail_number: "var(--color-purple)",
   airport: "var(--text-secondary)", availability: "var(--amber)",
   negotiation_signal: "var(--osa-orange)", hold_duration: "var(--text-muted)",
 };
@@ -61,7 +61,7 @@ export function CallAssist({ active, brief, transcript, entities, callDuration, 
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {brief.talkingPoints.map((tp, i) => (
-              <span key={i} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 3, background: "var(--surface-hover)", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{tp}</span>
+              <span key={i} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "var(--surface-hover)", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{tp}</span>
             ))}
           </div>
         </div>

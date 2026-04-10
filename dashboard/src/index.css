@@ -4,34 +4,39 @@
  */
 
 :root {
-  /* Brand */
-  --osa-orange: #E74B1D;
-  --osa-cream: #F5F0E8;
-  --near-black: #1A1A1A;
-
-  /* Semantic */
-  --bg: #0F0F0F;
-  --surface: #161616;
-  --surface-elevated: #1C1C1C;
-  --surface-hover: #222222;
+  /* Design System — 12 core tokens */
+  --bg: #09090B;
+  --surface: #18181B;
+  --surface-elevated: #27272A;
+  --surface-hover: #27272A;
   --surface-active: rgba(231, 75, 29, 0.08);
-  --border: #2A2A2A;
+  --border: #3F3F46;
 
-  --text-primary: #E8E8E8;
-  --text-secondary: #B0B0B0;
-  --text-muted: #666666;
+  --text-primary: #FAFAFA;
+  --text-secondary: #A1A1AA;
+  --text-muted: #52525B;
 
+  --osa-orange: #E74B1D;
   --green: #22C55E;
   --amber: #F59E0B;
-  --osa-red: #DC2626;
+  --osa-red: #EF4444;
+  --color-info: #3B82F6;
+  --color-purple: #A78BFA;
+
+  /* Brand */
+  --osa-cream: #F5F0E8;
+  --near-black: #09090B;
 
   /* Typography */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
 
-  /* Layout breakpoints (reference only — used via media queries) */
-  --bp-tablet: 768px;
-  --bp-desktop: 1200px;
+  /* Spacing */
+  --gap-xs: 4px;
+  --gap-sm: 8px;
+  --gap-md: 12px;
+  --gap-lg: 16px;
+  --gap-xl: 24px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -49,7 +54,7 @@ html, body, #root {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #444; }
+::-webkit-scrollbar-thumb:hover { background: var(--surface-elevated); }
 
 /* Focus indicators — accessibility */
 :focus-visible {

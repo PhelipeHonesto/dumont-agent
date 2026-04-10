@@ -79,7 +79,7 @@ export function InboxFeed({ items, onSelectDeal }: Props) {
               aria-label={`${item.channel} message from ${item.fromName ?? item.from}`}
               onClick={() => item.dealId && onSelectDeal?.(item.dealId)}
               style={{
-                display: "flex", gap: 10, padding: "8px 10px", borderRadius: 6,
+                display: "flex", gap: 10, padding: "8px 10px", borderRadius: 4,
                 cursor: item.dealId ? "pointer" : "default",
                 animation: "fadeIn 0.2s ease-out", transition: "background 0.15s",
               }}

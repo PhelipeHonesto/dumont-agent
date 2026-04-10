@@ -6,8 +6,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { PipelineView } from "./components/PipelineView";
 import { DealDetail } from "./components/DealDetail";
-import { OperatorNetwork } from "./components/OperatorNetwork";
-import { LearningMetrics } from "./components/LearningMetrics";
 import { StatusLine } from "./components/StatusLine";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { InboxFeed } from "./components/InboxFeed";
@@ -18,7 +16,6 @@ import { IntelligenceView } from "./components/IntelligenceView";
 import { ChatView, type ChatMessage } from "./components/ChatView";
 import { useDealStore } from "./hooks/useDealStore";
 import { CommandBar } from "./components/CommandBar";
-import { Phone } from "./components/Icons";
 
 type Tab = "pipeline" | "inbox" | "calls" | "sdr" | "autonomy" | "intelligence" | "dumont";
 
@@ -35,35 +32,27 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
-  if (typeof window !== "undefined") {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(query).matches : false,
+  );
+  useEffect(() => {
     const mql = window.matchMedia(query);
-    mql.onchange = () => setMatches(mql.matches);
-  }
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, [query]);
   return matches;
 }
 
 export function App() {
   const store = useDealStore();
-  const { deals, selectedDeal, selectedDealId, setSelectedDealId, mode, toggleMode, metrics, operatorStats, ledgerEntries, ledgerSummary, triggerRefresh } = store;
+  const { deals, selectedDeal, selectedDealId, setSelectedDealId, mode, toggleMode, ledgerEntries, ledgerSummary, triggerRefresh } = store;
   const isMobile = useMediaQuery("(max-width: 767px)");
   const isTablet = useMediaQuery("(max-width: 1199px)");
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("pipeline");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [terminalOpen, setTerminalOpen] = useState(false);
-
-  // Global Cmd+K / Ctrl+K to toggle terminal panel
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setTerminalOpen((o) => !o);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
 
   const onSelectDeal = useCallback((id: string) => {
     setSelectedDealId(id);
@@ -89,9 +78,81 @@ export function App() {
     triggerRefresh();
   }, [triggerRefresh]);
 
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't capture when typing in input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      // Cmd+K: toggle terminal
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setTerminalOpen((o) => !o);
+        return;
+      }
+
+      // Tab switching: 1-7
+      const tabKeys = ["pipeline", "inbox", "calls", "sdr", "autonomy", "intelligence", "dumont"] as Tab[];
+      const digit = parseInt(e.key);
+      if (digit >= 1 && digit <= 7 && !e.metaKey && !e.ctrlKey) {
+        setActiveTab(tabKeys[digit - 1]!);
+        e.preventDefault();
+        return;
+      }
+
+      // / to focus command bar
+      if (e.key === "/" && !e.metaKey) {
+        document.querySelector<HTMLInputElement>('[data-command-input]')?.focus();
+        e.preventDefault();
+        return;
+      }
+
+      // J/K for deal navigation in pipeline
+      if (activeTab === "pipeline" && (e.key === "j" || e.key === "k")) {
+        const idx = deals.findIndex((d) => d.id === selectedDealId);
+        if (e.key === "j" && idx < deals.length - 1) {
+          setSelectedDealId(deals[idx + 1]?.id ?? null);
+        } else if (e.key === "k" && idx > 0) {
+          setSelectedDealId(deals[idx - 1]?.id ?? null);
+        }
+        e.preventDefault();
+        return;
+      }
+
+      // Escape to deselect deal
+      if (e.key === "Escape" && !terminalOpen) {
+        setSelectedDealId(null);
+        e.preventDefault();
+        return;
+      }
+
+      // Cmd+Enter: approve awaiting_review deal
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && selectedDealId) {
+        const deal = deals.find(d => d.id === selectedDealId);
+        if (deal?.stage === "awaiting_review") {
+          onReviewAction(selectedDealId, "approve", "Approved via keyboard shortcut");
+        }
+        e.preventDefault();
+        return;
+      }
+
+      // Cmd+Backspace: reject awaiting_review deal
+      if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && selectedDealId) {
+        const deal = deals.find(d => d.id === selectedDealId);
+        if (deal?.stage === "awaiting_review") {
+          onReviewAction(selectedDealId, "reject", "Rejected via keyboard shortcut");
+        }
+        e.preventDefault();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [activeTab, deals, selectedDealId, terminalOpen, onReviewAction, setSelectedDealId]);
+
   // Mock data for new tabs (same pattern as useDealStore fixture data)
   const draftPendingCount = deals.filter((d) => d.stage === "awaiting_review").length || 1;
-  const hasActiveCall = false;
 
   return (
     <ErrorBoundary>
@@ -108,12 +169,6 @@ export function App() {
             )}
             <h1 style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", margin: 0, letterSpacing: -0.3 }}>Mission Control</h1>
             <span style={{ fontSize: 11, color: "var(--osa-orange)", fontWeight: 600, fontFamily: "var(--font-mono)" }}>OSA CONNECT</span>
-            {hasActiveCall && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--osa-red)", animation: "pulse 1.5s infinite" }} />
-                <Phone size={12} color="var(--osa-red)" />
-              </span>
-            )}
           </div>
           <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
             {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
@@ -168,6 +223,7 @@ export function App() {
 
           {activeTab === "inbox" && (
             <InboxFeed
+              // TODO: wire to API — GET /api/inbox
               items={[
                 { id: "in_1", channel: "bland_voice", from: "+1-312-555-0199", fromName: "Sarah Chen", body: "Client requests TEB to PBI, April 15, 4 pax, ~$30K budget.", receivedAt: new Date(Date.now() - 300000).toISOString(), dealId: deals[0]?.id ?? null, sdrClassification: "qualified_with_budget", intent: "quote_request" },
                 { id: "in_2", channel: "email", from: "marcus@rivera.co", fromName: "Marcus Rivera", body: "Hi, I'd like to charter a flight from Chicago to Aspen for 6 with ski gear.", receivedAt: new Date(Date.now() - 1200000).toISOString(), dealId: deals[1]?.id ?? null, sdrClassification: "qualified_no_budget", intent: "quote_request" },
@@ -179,7 +235,7 @@ export function App() {
 
           {activeTab === "calls" && (
             <CallAssist
-              active={hasActiveCall}
+              active={false}
               brief={null}
               transcript={[]}
               entities={[]}
@@ -189,6 +245,7 @@ export function App() {
 
           {activeTab === "sdr" && (
             <SDRQueue
+              // TODO: wire to API — GET /api/sdr
               items={[
                 { id: "sdr_1", clientName: "Sarah Chen", route: "KTEB → KPBI", classification: "qualified_with_budget", reason: "Route, date, pax, and budget confirmed.", draftStatus: "sent", receivedAt: new Date(Date.now() - 300000).toISOString(), dealId: deals[0]?.id ?? null },
                 { id: "sdr_2", clientName: "Marcus Rivera", route: "KORD → KASE", classification: "qualified_no_budget", reason: "Qualified. Awaiting budget.", draftStatus: "pending", receivedAt: new Date(Date.now() - 1200000).toISOString(), dealId: deals[1]?.id ?? null },
@@ -200,6 +257,7 @@ export function App() {
 
           {activeTab === "autonomy" && (
             <AutonomyDashboard
+              // TODO: wire to API — GET /api/autonomy
               rules={[
                 { channel: "email", intent: "follow_up", recipientType: "client", autoSendEnabled: true, autoSendAfter: 10, currentApprovals: 12, lastUsed: new Date(Date.now() - 3600000).toISOString(), editRate: 0.05 },
                 { channel: "email", intent: "quote_request", recipientType: "operator", autoSendEnabled: false, autoSendAfter: 10, currentApprovals: 7, lastUsed: new Date(Date.now() - 7200000).toISOString(), editRate: 0.15 },

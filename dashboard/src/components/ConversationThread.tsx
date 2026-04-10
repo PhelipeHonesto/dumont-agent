@@ -34,7 +34,7 @@ function EntityBadges({ data }: { data: Record<string, unknown> | null }) {
   return (
     <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
       {badges.map((b, i) => (
-        <span key={i} style={{ fontSize: 9, fontFamily: "var(--font-mono)", padding: "1px 4px", borderRadius: 3, background: "var(--surface-hover)", color: "var(--text-muted)" }}>{b}</span>
+        <span key={i} style={{ fontSize: 9, fontFamily: "var(--font-mono)", padding: "1px 4px", borderRadius: 4, background: "var(--surface-hover)", color: "var(--text-muted)" }}>{b}</span>
       ))}
     </div>
   );
@@ -57,8 +57,8 @@ export function ConversationThread({ messages }: Props) {
         const ts = m.sentAt ?? m.receivedAt;
         return (
           <div key={m.id} aria-label={`${isOutbound ? "Outbound" : "Inbound"} ${m.channel} message from ${m.fromName ?? m.from}`} style={{
-            display: "flex", gap: 8, padding: "6px 8px", borderRadius: 6,
-            background: isOutbound ? "rgba(231,75,29,0.04)" : "transparent",
+            display: "flex", gap: 8, padding: "6px 8px", borderRadius: 4,
+            background: isOutbound ? "var(--surface-active)" : "transparent",
             animation: "fadeIn 0.2s ease-out",
           }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 20, paddingTop: 2 }}>
