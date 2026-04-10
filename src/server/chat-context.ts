@@ -159,15 +159,46 @@ export function buildChatContext(dealId?: string): string {
     // KG tables may not exist yet — skip silently
   }
 
-  // LIVE FLEET (ADS-B) — only if data exists, kept under 50 tokens
+  // FLEET INTELLIGENCE (ADS-B) — completed legs + live state
   try {
+    const db = getDb();
     const kgStore = kg();
+
+    // Completed legs summary
+    const legStats = db.prepare(`
+      SELECT COUNT(*) as total,
+        SUM(CASE WHEN aircraft_class IS NOT NULL THEN 1 ELSE 0 END) as charter,
+        SUM(CASE WHEN aircraft_class = 'heavy' THEN 1 ELSE 0 END) as heavy,
+        SUM(CASE WHEN aircraft_class = 'super_mid' THEN 1 ELSE 0 END) as super_mid,
+        SUM(CASE WHEN aircraft_class = 'midsize' THEN 1 ELSE 0 END) as midsize,
+        SUM(CASE WHEN aircraft_class = 'light' THEN 1 ELSE 0 END) as light,
+        SUM(CASE WHEN aircraft_class = 'turboprop' THEN 1 ELSE 0 END) as turboprop
+      FROM adsb_completed_legs
+    `).get() as { total: number; charter: number; heavy: number; super_mid: number; midsize: number; light: number; turboprop: number } | undefined;
+
+    if (legStats && legStats.total > 0) {
+      lines.push("");
+      lines.push("FLEET INTELLIGENCE (ADS-B):");
+      lines.push(`  Completed legs: ${legStats.total.toLocaleString()} (${legStats.charter} charter-class)`);
+      lines.push(`  Charter: ${legStats.heavy} heavy, ${legStats.super_mid} super-mid, ${legStats.midsize} midsize, ${legStats.light} light, ${legStats.turboprop} turboprop`);
+
+      // Top 5 airports by charter departures
+      const topAirports = db.prepare(`
+        SELECT origin_icao as apt, COUNT(*) as deps FROM adsb_completed_legs
+        WHERE aircraft_class IS NOT NULL AND origin_icao IS NOT NULL
+        GROUP BY origin_icao ORDER BY deps DESC LIMIT 5
+      `).all() as { apt: string; deps: number }[];
+      if (topAirports.length > 0) {
+        lines.push(`  Top airports: ${topAirports.map((a) => `${a.apt}(${a.deps})`).join(", ")}`);
+      }
+    }
+
+    // Live aircraft state (ghost inventory)
     if (kgStore.hasAdsbData()) {
       const fleet = kgStore.getFleetStats();
-      lines.push("");
-      lines.push(`LIVE FLEET (ADS-B): ${fleet.total} tracked: ${fleet.airborne} airborne, ${fleet.idleTransient} idle transient (ghost inventory)`);
+      lines.push(`  Live: ${fleet.total} tracked, ${fleet.airborne} airborne, ${fleet.idleTransient} idle transient (ghost inventory)`);
 
-      // If we have a deal with a specific origin, show ghost candidates
+      // Deal-specific ghost candidates
       if (dealId) {
         const deal = deals.find((d) => d.id === dealId);
         if (deal?.route?.departure) {
