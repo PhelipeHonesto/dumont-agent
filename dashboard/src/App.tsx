@@ -13,11 +13,12 @@ import { CallAssist } from "./components/CallAssist";
 import { SDRQueue } from "./components/SDRQueue";
 import { AutonomyDashboard } from "./components/AutonomyDashboard";
 import { IntelligenceView } from "./components/IntelligenceView";
+import { RadarView } from "./components/RadarView";
 import { ChatView, type ChatMessage } from "./components/ChatView";
 import { useDealStore } from "./hooks/useDealStore";
 import { CommandBar } from "./components/CommandBar";
 
-type Tab = "pipeline" | "inbox" | "calls" | "sdr" | "autonomy" | "intelligence" | "dumont";
+type Tab = "pipeline" | "inbox" | "calls" | "sdr" | "autonomy" | "intelligence" | "dumont" | "radar";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
@@ -29,6 +30,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "autonomy", label: "Autonomy" },
   { key: "intelligence", label: "Intelligence" },
   { key: "dumont", label: "Dumont" },
+  { key: "radar", label: "Radar" },
 ];
 
 function useMediaQuery(query: string): boolean {
@@ -46,13 +48,14 @@ function useMediaQuery(query: string): boolean {
 
 export function App() {
   const store = useDealStore();
-  const { deals, selectedDeal, selectedDealId, setSelectedDealId, mode, toggleMode, ledgerEntries, ledgerSummary, triggerRefresh } = store;
+  const { deals, selectedDeal, selectedDealId, setSelectedDealId, mode, toggleMode, ledgerEntries, ledgerSummary, benchmarks, operators, triggerRefresh } = store;
   const isMobile = useMediaQuery("(max-width: 767px)");
   const isTablet = useMediaQuery("(max-width: 1199px)");
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("pipeline");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [dumontPanelOpen, setDumontPanelOpen] = useState(false);
 
   const onSelectDeal = useCallback((id: string) => {
     setSelectedDealId(id);
@@ -91,10 +94,21 @@ export function App() {
         return;
       }
 
-      // Tab switching: 1-7
-      const tabKeys = ["pipeline", "inbox", "calls", "sdr", "autonomy", "intelligence", "dumont"] as Tab[];
+      // Cmd+\: toggle Dumont side panel on pipeline, switch to tab elsewhere
+      if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
+        e.preventDefault();
+        if (activeTab === "pipeline") {
+          setDumontPanelOpen((o) => !o);
+        } else {
+          setActiveTab("dumont");
+        }
+        return;
+      }
+
+      // Tab switching: 1-8
+      const tabKeys = ["pipeline", "inbox", "calls", "sdr", "autonomy", "intelligence", "dumont", "radar"] as Tab[];
       const digit = parseInt(e.key);
-      if (digit >= 1 && digit <= 7 && !e.metaKey && !e.ctrlKey) {
+      if (digit >= 1 && digit <= 8 && !e.metaKey && !e.ctrlKey) {
         setActiveTab(tabKeys[digit - 1]!);
         e.preventDefault();
         return;
@@ -119,9 +133,13 @@ export function App() {
         return;
       }
 
-      // Escape to deselect deal
+      // Escape: close Dumont panel first, then deselect deal
       if (e.key === "Escape" && !terminalOpen) {
-        setSelectedDealId(null);
+        if (dumontPanelOpen) {
+          setDumontPanelOpen(false);
+        } else {
+          setSelectedDealId(null);
+        }
         e.preventDefault();
         return;
       }
@@ -149,7 +167,7 @@ export function App() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [activeTab, deals, selectedDealId, terminalOpen, onReviewAction, setSelectedDealId]);
+  }, [activeTab, deals, selectedDealId, terminalOpen, dumontPanelOpen, onReviewAction, setSelectedDealId]);
 
   // Mock data for new tabs (same pattern as useDealStore fixture data)
   const draftPendingCount = deals.filter((d) => d.stage === "awaiting_review").length || 1;
@@ -214,8 +232,20 @@ export function App() {
                 </div>
               )}
               {(!isMobile || mobileShowDetail) && (
-                <div style={{ flex: isTablet && !isMobile ? undefined : 2, overflow: "auto" }}>
+                <div style={{ flex: isTablet && !isMobile ? undefined : 2, overflow: "auto", minWidth: 0 }}>
                   <DealDetail deal={selectedDeal} onReviewAction={onReviewAction} />
+                </div>
+              )}
+              {dumontPanelOpen && !isMobile && (
+                <div style={{ width: 400, minWidth: 400, display: "flex", flexDirection: "column", borderLeft: "1px solid var(--border)", background: "var(--bg)", overflow: "hidden" }}>
+                  <ChatView
+                    messages={chatMessages}
+                    setMessages={setChatMessages}
+                    dealId={selectedDealId}
+                    apiUrl={API_BASE}
+                    compact
+                    onClose={() => setDumontPanelOpen(false)}
+                  />
                 </div>
               )}
             </div>
@@ -271,8 +301,14 @@ export function App() {
             <IntelligenceView
               entries={ledgerEntries}
               summary={ledgerSummary}
+              benchmarks={benchmarks}
+              operators={operators}
               onExportCSV={() => { window.open(`${API_BASE}/api/ledger/export`); }}
             />
+          )}
+
+          {activeTab === "radar" && (
+            <RadarView />
           )}
 
           {activeTab === "dumont" && (

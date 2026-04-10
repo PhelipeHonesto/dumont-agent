@@ -173,11 +173,13 @@ export interface ValidationLedgerEntry {
   mode: string;
   leadTimeHours: number;
   rliAtQuote: string;
+  rliScore?: number;
   dumontPhysicsEstimate: number | null;
   ghostPositioningValue: number | null;
   operatorQuotedPrice: number | null;
   osaClientPrice: number | null;
   realizedMarginPct: number | null;
+  estimateDeltaPercent?: number;
   rfqsSent: number;
   quotesReceived: number;
   operatorResponseMinutes: number | null;
@@ -186,6 +188,34 @@ export interface ValidationLedgerEntry {
   fleetResilienceUsed: boolean;
   tripCompleted: boolean | null;
   notes: string;
+  // Benchmark 1: Ghost Positioning Spread
+  ghostValueCents?: number;
+  ghostDescription?: string;
+  // Benchmark 4: Fleet Resilience
+  tripOutcome?: string;
+  recoveryTimeMin?: number;
+  // Benchmark 5: Demand Prediction
+  routePageViews7d?: number;
+  // Benchmark 6: Client Decision Velocity
+  optionsPresentedAt?: string;
+  clientConfirmedAt?: string;
+  // Benchmark 7: Network Density
+  operatorsInNetwork?: number;
+  operatorsInMetro?: number;
+  // Operator Intelligence
+  operatorName?: string;
+  operatorBase?: string;
+  operatorReliabilityScore?: number;
+  // Outcome
+  revenueCents?: number;
+  // Payment State
+  paymentStatus?: string;
+  clientPaidAt?: string;
+  operatorPaidAt?: string;
+  floatWindowHours?: number;
+  // Timestamps
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LedgerSummary {
@@ -205,4 +235,40 @@ export interface DealMetrics {
   avgDealSize: number;
   avgMargin: number;
   avgEstimateDelta: number;
+}
+
+// ── Payment & Trip Outcome ──────────────────────────────────────────────
+
+export type PaymentStatus = "pending" | "invoiced" | "client_paid" | "operator_paid" | "margin_captured";
+
+export type TripOutcome = "completed" | "disruption_recovered" | "disruption_failed" | "cancelled";
+
+// ── Benchmark Metrics (GET /api/metrics/benchmarks) ─────────────────────
+
+export interface BenchmarkMetrics {
+  ghostSpread: { totalCents: number; dealCount: number; avgPerDeal: number };
+  signalRatio: { ratio: number; rfqsSent: number; quotesReceived: number };
+  marginByLiquidity: { high: number | null; low: number | null };
+  fleetResilience: { completionRate: number; recoveriesUsed: number; avgRecoveryMin: number };
+  decisionVelocity: { avgMin: number };
+  networkDensity: { operators: number; perMetro: number };
+  pricingAccuracy: { avgAbsDeltaPct: number; sampleSize: number };
+  financial: { totalRevenueCents: number; avgMarginPct: number; totalDeals: number; bookedDeals: number; winRate: number };
+}
+
+// ── Operator Profile (mirrors composite-objects.ts OperatorProfile) ─────
+
+export interface OperatorProfile {
+  name: string;
+  homeBase: string;
+  certs: string[];
+  fleet: string[];
+  avgResponseTime: number;
+  reliabilityScore: number;
+  pricingDelta: number;
+  paymentSpeed: number;
+  quoteToBookRate: number;
+  cancelRate: number;
+  dealCount: number;
+  lastUpdated: string;
 }

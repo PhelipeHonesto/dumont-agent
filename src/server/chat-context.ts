@@ -3,7 +3,7 @@
  * Layer: server
  *
  * Compass, not encyclopedia. Dense human-readable text, not raw JSON.
- * Target: under 500 tokens total context.
+ * Target: under 700 tokens total context.
  */
 
 import { DealStore } from "../memory/deal-store.js";
@@ -97,5 +97,33 @@ export function buildChatContext(dealId?: string): string {
     }
   }
 
+  // BENCHMARKS — 7 intelligence metrics
+  const bm = vl().getSummaryMetrics();
+  lines.push("");
+  lines.push("BENCHMARKS:");
+  lines.push(`  Ghost Spread: ${fmtCents(bm.ghostSpread.totalCents)} captured (${bm.ghostSpread.dealCount} deals, avg ${fmtCents(bm.ghostSpread.avgPerDeal)}/deal)`);
+  lines.push(`  Signal Ratio: ${pct(bm.signalRatio.ratio)} (${bm.signalRatio.quotesReceived}/${bm.signalRatio.rfqsSent} RFQs)`);
+  lines.push(`  Margin: ${bm.marginByLiquidity.high != null ? bm.marginByLiquidity.high.toFixed(1) + "%" : "—"} liquid / ${bm.marginByLiquidity.low != null ? bm.marginByLiquidity.low.toFixed(1) + "%" : "—"} constrained`);
+  lines.push(`  Pricing Accuracy: ±${bm.pricingAccuracy.avgAbsDeltaPct.toFixed(1)}% (${bm.pricingAccuracy.sampleSize} samples)`);
+
+  // OPERATOR DELTAS — top operators sorted by pricing delta
+  const allOps = op().getAll();
+  const opsWithDeals = allOps.filter((o) => o.dealCount > 0).sort((a, b) => b.pricingDelta - a.pricingDelta);
+  if (opsWithDeals.length > 0) {
+    lines.push("");
+    lines.push("OPERATOR DELTAS (30d):");
+    for (const o of opsWithDeals.slice(0, 5)) {
+      const sign = o.pricingDelta >= 0 ? "+" : "";
+      const label = o.pricingDelta < -0.02 ? " (hungry)" : o.pricingDelta > 0.05 ? " (premium)" : "";
+      lines.push(`  ${o.name} (${o.homeBase}): ${sign}${(o.pricingDelta * 100).toFixed(1)}% vs physics${label}`);
+    }
+  }
+
   return lines.join("\n");
+}
+
+function fmtCents(cents: number): string {
+  if (cents >= 100000) return `$${Math.round(cents / 100000)}K`;
+  if (cents >= 100) return `$${Math.round(cents / 100)}`;
+  return `$${(cents / 100).toFixed(2)}`;
 }

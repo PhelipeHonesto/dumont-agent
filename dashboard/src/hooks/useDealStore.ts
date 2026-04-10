@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import type { DealContext, DealRecord, DealMode, OperatorStats, ValidationLedgerEntry, LedgerSummary } from "../types";
+import type { DealContext, DealRecord, DealMode, OperatorStats, ValidationLedgerEntry, LedgerSummary, BenchmarkMetrics, OperatorProfile } from "../types";
 import { DEMO_DEALS, DEMO_RECORDS, DEMO_OPERATOR_STATS } from "../fixtures/demo-deals";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
@@ -32,6 +32,8 @@ export function useDealStore() {
   const [selectedDealId, setSelectedDealId] = useState<string | null>(DEMO_DEALS[0]?.id ?? null);
   const [ledgerEntries, setLedgerEntries] = useState<ValidationLedgerEntry[]>([]);
   const [ledgerSummary, setLedgerSummary] = useState<LedgerSummary>(EMPTY_LEDGER_SUMMARY);
+  const [benchmarks, setBenchmarks] = useState<BenchmarkMetrics | null>(null);
+  const [operators, setOperators] = useState<OperatorProfile[]>([]);
   const [apiConnected, setApiConnected] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const refreshCounterRef = useRef(0);
@@ -41,10 +43,12 @@ export function useDealStore() {
   const fetchData = useCallback(async () => {
     try {
       const headers = authHeaders();
-      const [dealsRes, metricsRes, ledgerRes] = await Promise.allSettled([
+      const [dealsRes, metricsRes, ledgerRes, benchmarksRes, operatorsRes] = await Promise.allSettled([
         fetch(`${API_BASE}/api/deals`, { headers }),
         fetch(`${API_BASE}/api/metrics`, { headers }),
         fetch(`${API_BASE}/api/ledger`, { headers }),
+        fetch(`${API_BASE}/api/metrics/benchmarks`, { headers }),
+        fetch(`${API_BASE}/api/operators`, { headers }),
       ]);
 
       let connected = false;
@@ -74,6 +78,20 @@ export function useDealStore() {
           setLedgerSummary(data.summary);
         }
         connected = true;
+      }
+
+      if (benchmarksRes.status === "fulfilled" && benchmarksRes.value.ok) {
+        const data = await benchmarksRes.value.json();
+        if (data && typeof data === "object") {
+          setBenchmarks(data);
+        }
+      }
+
+      if (operatorsRes.status === "fulfilled" && operatorsRes.value.ok) {
+        const data = await operatorsRes.value.json();
+        if (Array.isArray(data)) {
+          setOperators(data);
+        }
       }
 
       if (!connected) {
@@ -153,6 +171,8 @@ export function useDealStore() {
     operatorStats,
     ledgerEntries,
     ledgerSummary,
+    benchmarks,
+    operators,
     apiConnected,
     triggerRefresh,
   };

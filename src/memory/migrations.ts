@@ -291,6 +291,33 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    id: 12,
+    name: "expand_validation_ledger",
+    sql: `
+      ALTER TABLE validation_ledger ADD COLUMN ghost_value_cents INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE validation_ledger ADD COLUMN ghost_description TEXT;
+      ALTER TABLE validation_ledger ADD COLUMN rli_score REAL;
+      ALTER TABLE validation_ledger ADD COLUMN trip_outcome TEXT NOT NULL DEFAULT 'completed';
+      ALTER TABLE validation_ledger ADD COLUMN recovery_time_min REAL;
+      ALTER TABLE validation_ledger ADD COLUMN route_page_views_7d INTEGER;
+      ALTER TABLE validation_ledger ADD COLUMN options_presented_at TEXT;
+      ALTER TABLE validation_ledger ADD COLUMN client_confirmed_at TEXT;
+      ALTER TABLE validation_ledger ADD COLUMN operators_in_network INTEGER;
+      ALTER TABLE validation_ledger ADD COLUMN operators_in_metro INTEGER;
+      ALTER TABLE validation_ledger ADD COLUMN estimate_delta_percent REAL;
+      ALTER TABLE validation_ledger ADD COLUMN operator_name TEXT;
+      ALTER TABLE validation_ledger ADD COLUMN operator_base TEXT;
+      ALTER TABLE validation_ledger ADD COLUMN operator_reliability_score REAL;
+      ALTER TABLE validation_ledger ADD COLUMN revenue_cents INTEGER;
+      ALTER TABLE validation_ledger ADD COLUMN payment_status TEXT NOT NULL DEFAULT 'pending';
+      ALTER TABLE validation_ledger ADD COLUMN client_paid_at TEXT;
+      ALTER TABLE validation_ledger ADD COLUMN operator_paid_at TEXT;
+      ALTER TABLE validation_ledger ADD COLUMN float_window_hours REAL;
+      ALTER TABLE validation_ledger ADD COLUMN created_at TEXT;
+      ALTER TABLE validation_ledger ADD COLUMN updated_at TEXT;
+    `,
+  },
 ];
 
 /**

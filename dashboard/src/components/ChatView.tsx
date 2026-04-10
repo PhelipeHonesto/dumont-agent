@@ -23,9 +23,13 @@ interface Props {
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   dealId: string | null;
   apiUrl: string;
+  /** Compact mode for side panel (reduced padding) */
+  compact?: boolean;
+  /** Close button callback (side panel only) */
+  onClose?: () => void;
 }
 
-export function ChatView({ messages, setMessages, dealId, apiUrl }: Props) {
+export function ChatView({ messages, setMessages, dealId, apiUrl, compact, onClose }: Props) {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -115,15 +119,19 @@ export function ChatView({ messages, setMessages, dealId, apiUrl }: Props) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg)" }}>
       {/* Header */}
-      <div style={{ padding: "8px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--osa-orange)", letterSpacing: 1 }}>DUMONT AI</span>
+      <div style={{ padding: compact ? "6px 12px" : "8px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8, height: 32 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--osa-orange)", letterSpacing: 1 }}>DUMONT</span>
         {dealId && (
-          <span style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>CTX: {dealId}</span>
+          <span style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-muted)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>CTX: {dealId}</span>
+        )}
+        {!dealId && <span style={{ flex: 1 }} />}
+        {onClose && (
+          <button onClick={onClose} aria-label="Close Dumont panel" style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1 }}>×</button>
         )}
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflow: "auto", padding: "12px 20px", fontFamily: "var(--font-mono)", fontSize: 12, lineHeight: 1.7 }}>
+      <div style={{ flex: 1, overflow: "auto", padding: compact ? "8px 12px" : "12px 20px", fontFamily: "var(--font-mono)", fontSize: compact ? 11 : 12, lineHeight: 1.7 }}>
         {messages.length === 0 && (
           <div style={{ color: "var(--text-muted)", fontSize: 11 }}>
             {dealId ? `Deal context loaded. Query the intelligence layer.` : "No deal selected. Ask about pipeline, operators, or routes."}
@@ -148,7 +156,7 @@ export function ChatView({ messages, setMessages, dealId, apiUrl }: Props) {
       </div>
 
       {/* Input */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 20px", borderTop: "1px solid var(--border)", background: "var(--bg)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: compact ? "4px 12px" : "6px 20px", borderTop: "1px solid var(--border)", background: "var(--bg)" }}>
         <span style={{ color: "var(--osa-orange)", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700 }}>{">"}</span>
         <input
           ref={inputRef}

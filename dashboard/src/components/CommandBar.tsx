@@ -33,6 +33,7 @@ const COMMANDS: CmdDef[] = [
   { command: "/operators", description: "Operator network summary", category: "System" },
   { command: "/autonomy", description: "Autonomy tracking status", category: "System" },
   { command: "/clear", description: "Clear terminal history", category: "System" },
+  { command: "/shortcuts", description: "Show keyboard shortcuts", category: "System" },
   { command: "/help", description: "Show all commands", category: "System" },
 ];
 
@@ -78,6 +79,7 @@ export function CommandBar({ callbacks, terminalOpen, onToggleTerminal }: Props)
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [acIndex, setAcIndex] = useState(0);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -120,7 +122,10 @@ export function CommandBar({ callbacks, terminalOpen, onToggleTerminal }: Props)
     const args = parts.slice(1);
     const lines: OutputLine[] = [];
 
-    if (cmd === "/help") {
+    if (cmd === "/shortcuts" || cmd === "/keys") {
+      setShowShortcuts((o) => !o);
+      return;
+    } else if (cmd === "/help") {
       lines.push({ text: "DUMONT COMMAND BAR", type: "info" });
       lines.push({ text: "", type: "info" });
       let lastCat = "";
@@ -190,7 +195,7 @@ export function CommandBar({ callbacks, terminalOpen, onToggleTerminal }: Props)
       if (e.key === "Escape") { setShowAutocomplete(false); return; }
     }
     if (e.key === "Enter") { e.preventDefault(); executeCommand(input); return; }
-    if (e.key === "Escape") { setInput(""); setShowAutocomplete(false); return; }
+    if (e.key === "Escape") { setInput(""); setShowAutocomplete(false); setShowShortcuts(false); return; }
     if (e.key === "ArrowUp" && !showAutocomplete) {
       e.preventDefault();
       if (historyIdx < cmdHistory.length - 1) { const idx = historyIdx + 1; setHistoryIdx(idx); setInput(cmdHistory[idx]!); }
@@ -239,6 +244,65 @@ export function CommandBar({ callbacks, terminalOpen, onToggleTerminal }: Props)
             </div>
           ))}
           <div ref={scrollRef} />
+        </div>
+      )}
+
+      {/* Shortcuts overlay */}
+      {showShortcuts && (
+        <div style={{
+          padding: "12px 16px", background: "var(--surface)",
+          borderTop: "1px solid var(--border)",
+          fontFamily: "var(--font-mono)", fontSize: 11, lineHeight: 1.8,
+          maxHeight: 400, overflow: "auto",
+        }}>
+          <div style={{ display: "flex", gap: 32 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: "var(--osa-orange)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, marginBottom: 4 }}>Navigation</div>
+              {([
+                ["1-8", "Switch tabs"],
+                ["J / K", "Previous / next deal"],
+                ["Enter", "Open deal detail"],
+                ["Esc", "Close panel → deselect"],
+                ["/", "Focus command bar"],
+              ] as const).map(([k, d]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: "var(--text-primary)", minWidth: 80 }}>{k}</span>
+                  <span style={{ color: "var(--text-secondary)" }}>{d}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 10, color: "var(--osa-orange)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, marginTop: 8, marginBottom: 4 }}>Actions</div>
+              {([
+                ["⌘\\", "Toggle Dumont panel"],
+                ["⌘↵", "Approve (awaiting_review)"],
+                ["⌘⌫", "Reject deal"],
+                ["⌘K", "Toggle terminal"],
+              ] as const).map(([k, d]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: "var(--text-primary)", minWidth: 80 }}>{k}</span>
+                  <span style={{ color: "var(--text-secondary)" }}>{d}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: "var(--osa-orange)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, marginBottom: 4 }}>Commands</div>
+              {([
+                ["/shortcuts", "This panel"],
+                ["/deal [id]", "Jump to deal"],
+                ["/review", "Approve/reject deal"],
+                ["/quote [amt]", "Enter manual quote"],
+                ["/export", "Export ledger CSV"],
+                ["/chat [msg]", "Message Dumont"],
+                ["/clear", "Clear terminal"],
+                ["/help", "All commands"],
+              ] as const).map(([k, d]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: "var(--text-primary)", minWidth: 100 }}>{k}</span>
+                  <span style={{ color: "var(--text-secondary)" }}>{d}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 10, color: "var(--text-muted)", textAlign: "center" }}>Press /shortcuts or Esc to close</div>
         </div>
       )}
 

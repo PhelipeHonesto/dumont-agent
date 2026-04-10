@@ -120,6 +120,7 @@ dealsRouter.get("/api/ledger", asyncHandler(async (_req: Request, res: Response)
   const entries = ledger().getAll();
   const booked = entries.filter((e) => e.outcome === "booked");
   const totalRevenue = booked.reduce((sum, e) => sum + ((e.osaClientPrice ?? 0) - (e.operatorQuotedPrice ?? 0)), 0);
+  const benchmarks = ledger().getSummaryMetrics();
 
   res.json({
     entries,
@@ -138,6 +139,7 @@ dealsRouter.get("/api/ledger", asyncHandler(async (_req: Request, res: Response)
           entries.filter((e) => e.operatorResponseMinutes != null).length
         : 0,
     },
+    benchmarks,
   });
 }));
 
@@ -190,9 +192,49 @@ dealsRouter.get("/api/metrics", asyncHandler(async (_req: Request, res: Response
   });
 }));
 
+// ── GET /api/metrics/benchmarks ────────────────────────────────────────
+
+dealsRouter.get("/api/metrics/benchmarks", asyncHandler(async (_req: Request, res: Response) => {
+  const benchmarks = ledger().getSummaryMetrics();
+  res.json({ benchmarks });
+}));
+
 // ── GET /api/operators ──────────────────────────────────────────────────
 
 dealsRouter.get("/api/operators", asyncHandler(async (_req: Request, res: Response) => {
   const profiles = operatorProfiles().getAll();
   res.json({ operators: profiles, count: profiles.length });
+}));
+
+// ── GET /api/operators/:name/pricing-history ────────────────────────────
+
+dealsRouter.get("/api/operators/:name/pricing-history", asyncHandler(async (req: Request, res: Response) => {
+  const name = String(req.params.name);
+  const profile = operatorProfiles().getIncludingStale(name);
+  if (!profile) {
+    res.status(404).json({ error: "Operator not found" });
+    return;
+  }
+
+  // Pull all ledger entries for this operator
+  const entries = ledger().getAll().filter((e) => e.operatorName === name);
+  const pricingHistory = entries.map((e) => ({
+    route: e.route,
+    date: e.date,
+    physicsEstimate: e.dumontPhysicsEstimate,
+    operatorQuoted: e.operatorQuotedPrice,
+    osaPrice: e.osaClientPrice,
+    marginPct: e.realizedMarginPct,
+    estimateDelta: e.estimateDeltaPercent ?? null,
+    outcome: e.outcome,
+  }));
+
+  res.json({
+    operator: name,
+    base: profile.homeBase,
+    pricingDelta: profile.pricingDelta,
+    reliabilityScore: profile.reliabilityScore,
+    dealCount: profile.dealCount,
+    history: pricingHistory,
+  });
 }));

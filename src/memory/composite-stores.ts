@@ -77,11 +77,13 @@ interface ValidationLedgerRow {
   mode: string;
   lead_time_hours: number;
   rli_at_quote: string;
+  rli_score: number | null;
   dumont_physics_estimate_cents: number | null;
   ghost_positioning_value: number | null;
   operator_quoted_price_cents: number | null;
   osa_client_price_cents: number | null;
   realized_margin_pct: number | null;
+  estimate_delta_percent: number | null;
   rfqs_sent: number;
   quotes_received: number;
   operator_response_minutes: number | null;
@@ -90,6 +92,44 @@ interface ValidationLedgerRow {
   fleet_resilience_used: number;
   trip_completed: number | null;
   notes: string;
+  // Benchmark 1: Ghost Positioning Spread
+  ghost_value_cents: number;
+  ghost_description: string | null;
+  // Benchmark 4: Fleet Resilience
+  trip_outcome: string;
+  recovery_time_min: number | null;
+  // Benchmark 5: Demand Prediction
+  route_page_views_7d: number | null;
+  // Benchmark 6: Client Decision Velocity
+  options_presented_at: string | null;
+  client_confirmed_at: string | null;
+  // Benchmark 7: Network Density
+  operators_in_network: number | null;
+  operators_in_metro: number | null;
+  // Operator Intelligence
+  operator_name: string | null;
+  operator_base: string | null;
+  operator_reliability_score: number | null;
+  // Outcome
+  revenue_cents: number | null;
+  // Payment State
+  payment_status: string;
+  client_paid_at: string | null;
+  operator_paid_at: string | null;
+  float_window_hours: number | null;
+  // Timestamps
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface BenchmarkMetrics {
+  ghostSpread: { totalCents: number; dealCount: number; avgPerDeal: number };
+  signalRatio: { rfqsSent: number; quotesReceived: number; ratio: number };
+  marginByLiquidity: { high: number | null; medium: number | null; low: number | null };
+  pricingAccuracy: { avgAbsDeltaPct: number; sampleSize: number };
+  avgClientDecisionMin: number | null;
+  networkDensity: { avgOperatorsInNetwork: number | null; avgOperatorsInMetro: number | null };
+  fleetResilience: { recoveredCount: number; failedCount: number; avgRecoveryMin: number | null };
 }
 
 interface CountRow {
@@ -346,11 +386,13 @@ export class ValidationLedgerStore {
       mode: row.mode as ValidationLedgerEntry["mode"],
       leadTimeHours: row.lead_time_hours,
       rliAtQuote: row.rli_at_quote as ValidationLedgerEntry["rliAtQuote"],
+      rliScore: row.rli_score ?? undefined,
       dumontPhysicsEstimate: toDollars(row.dumont_physics_estimate_cents),
       ghostPositioningValue: row.ghost_positioning_value,
       operatorQuotedPrice: toDollars(row.operator_quoted_price_cents),
       osaClientPrice: toDollars(row.osa_client_price_cents),
       realizedMarginPct: row.realized_margin_pct,
+      estimateDeltaPercent: row.estimate_delta_percent ?? undefined,
       rfqsSent: row.rfqs_sent,
       quotesReceived: row.quotes_received,
       operatorResponseMinutes: row.operator_response_minutes,
@@ -359,28 +401,78 @@ export class ValidationLedgerStore {
       fleetResilienceUsed: Boolean(row.fleet_resilience_used),
       tripCompleted: row.trip_completed === null ? null : Boolean(row.trip_completed),
       notes: row.notes,
+      // Benchmark 1: Ghost Positioning Spread
+      ghostValueCents: row.ghost_value_cents ?? 0,
+      ghostDescription: row.ghost_description ?? undefined,
+      // Benchmark 4: Fleet Resilience
+      tripOutcome: (row.trip_outcome as ValidationLedgerEntry["tripOutcome"]) ?? "completed",
+      recoveryTimeMin: row.recovery_time_min ?? undefined,
+      // Benchmark 5: Demand Prediction
+      routePageViews7d: row.route_page_views_7d ?? undefined,
+      // Benchmark 6: Client Decision Velocity
+      optionsPresentedAt: row.options_presented_at ?? undefined,
+      clientConfirmedAt: row.client_confirmed_at ?? undefined,
+      // Benchmark 7: Network Density
+      operatorsInNetwork: row.operators_in_network ?? undefined,
+      operatorsInMetro: row.operators_in_metro ?? undefined,
+      // Operator Intelligence
+      operatorName: row.operator_name ?? undefined,
+      operatorBase: row.operator_base ?? undefined,
+      operatorReliabilityScore: row.operator_reliability_score ?? undefined,
+      // Outcome
+      revenueCents: row.revenue_cents ?? undefined,
+      // Payment State
+      paymentStatus: (row.payment_status as ValidationLedgerEntry["paymentStatus"]) ?? "pending",
+      clientPaidAt: row.client_paid_at ?? undefined,
+      operatorPaidAt: row.operator_paid_at ?? undefined,
+      floatWindowHours: row.float_window_hours ?? undefined,
+      // Timestamps
+      createdAt: row.created_at ?? undefined,
+      updatedAt: row.updated_at ?? undefined,
     };
   }
 
   append(entry: ValidationLedgerEntry): void {
+    const now = new Date().toISOString();
     this.db.prepare(`
       INSERT INTO validation_ledger (
-        route, date, mode, lead_time_hours, rli_at_quote,
+        route, date, mode, lead_time_hours, rli_at_quote, rli_score,
         dumont_physics_estimate_cents, ghost_positioning_value,
         operator_quoted_price_cents, osa_client_price_cents,
-        realized_margin_pct, rfqs_sent, quotes_received,
+        realized_margin_pct, estimate_delta_percent,
+        rfqs_sent, quotes_received,
         operator_response_minutes, client_decision_minutes,
-        outcome, fleet_resilience_used, trip_completed, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        outcome, fleet_resilience_used, trip_completed, notes,
+        ghost_value_cents, ghost_description,
+        trip_outcome, recovery_time_min,
+        route_page_views_7d,
+        options_presented_at, client_confirmed_at,
+        operators_in_network, operators_in_metro,
+        operator_name, operator_base, operator_reliability_score,
+        revenue_cents,
+        payment_status, client_paid_at, operator_paid_at, float_window_hours,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       entry.route, entry.date, entry.mode, entry.leadTimeHours, entry.rliAtQuote,
+      entry.rliScore ?? null,
       toCents(entry.dumontPhysicsEstimate), entry.ghostPositioningValue,
       toCents(entry.operatorQuotedPrice), toCents(entry.osaClientPrice),
-      entry.realizedMarginPct, entry.rfqsSent, entry.quotesReceived,
+      entry.realizedMarginPct, entry.estimateDeltaPercent ?? null,
+      entry.rfqsSent, entry.quotesReceived,
       entry.operatorResponseMinutes, entry.clientDecisionMinutes,
       entry.outcome, entry.fleetResilienceUsed ? 1 : 0,
       entry.tripCompleted === null ? null : (entry.tripCompleted ? 1 : 0),
       entry.notes,
+      entry.ghostValueCents ?? 0, entry.ghostDescription ?? null,
+      entry.tripOutcome ?? "completed", entry.recoveryTimeMin ?? null,
+      entry.routePageViews7d ?? null,
+      entry.optionsPresentedAt ?? null, entry.clientConfirmedAt ?? null,
+      entry.operatorsInNetwork ?? null, entry.operatorsInMetro ?? null,
+      entry.operatorName ?? null, entry.operatorBase ?? null, entry.operatorReliabilityScore ?? null,
+      entry.revenueCents ?? null,
+      entry.paymentStatus ?? "pending", entry.clientPaidAt ?? null, entry.operatorPaidAt ?? null, entry.floatWindowHours ?? null,
+      entry.createdAt ?? now, entry.updatedAt ?? now,
     );
   }
 
@@ -410,5 +502,100 @@ export class ValidationLedgerStore {
   get count(): number {
     const row = this.db.prepare("SELECT COUNT(*) as cnt FROM validation_ledger").get() as CountRow | undefined;
     return row?.cnt ?? 0;
+  }
+
+  /**
+   * Compute the 7 benchmark metrics via SQL aggregation.
+   * Returns BenchmarkMetrics for the entire ledger.
+   */
+  getSummaryMetrics(): BenchmarkMetrics {
+    // Benchmark 1: Ghost Positioning Spread
+    const ghost = this.db.prepare(`
+      SELECT COALESCE(SUM(ghost_value_cents), 0) AS total,
+             COUNT(*) AS cnt
+      FROM validation_ledger
+      WHERE ghost_value_cents > 0
+    `).get() as { total: number; cnt: number };
+
+    // Benchmark 2: Operator Signal Ratio
+    const signal = this.db.prepare(`
+      SELECT COALESCE(SUM(rfqs_sent), 0) AS rfqs,
+             COALESCE(SUM(quotes_received), 0) AS quotes
+      FROM validation_ledger
+    `).get() as { rfqs: number; quotes: number };
+
+    // Benchmark 3: Margin by liquidity
+    const marginByRli = (rli: string): number | null => {
+      const row = this.db.prepare(`
+        SELECT AVG(realized_margin_pct) AS avg_margin
+        FROM validation_ledger
+        WHERE rli_at_quote = ? AND realized_margin_pct IS NOT NULL
+      `).get(rli) as { avg_margin: number | null } | undefined;
+      return row?.avg_margin ?? null;
+    };
+
+    // Benchmark 4: Fleet Resilience
+    const resilience = this.db.prepare(`
+      SELECT
+        SUM(CASE WHEN trip_outcome = 'disruption_recovered' THEN 1 ELSE 0 END) AS recovered,
+        SUM(CASE WHEN trip_outcome = 'disruption_failed' THEN 1 ELSE 0 END) AS failed,
+        AVG(CASE WHEN trip_outcome = 'disruption_recovered' THEN recovery_time_min END) AS avg_recovery
+      FROM validation_ledger
+    `).get() as { recovered: number; failed: number; avg_recovery: number | null };
+
+    // Benchmark 5: Pricing accuracy (estimate_delta_percent)
+    const pricing = this.db.prepare(`
+      SELECT AVG(ABS(estimate_delta_percent)) AS avg_delta,
+             COUNT(*) AS cnt
+      FROM validation_ledger
+      WHERE estimate_delta_percent IS NOT NULL
+    `).get() as { avg_delta: number | null; cnt: number };
+
+    // Benchmark 6: Client Decision Velocity
+    const decision = this.db.prepare(`
+      SELECT AVG(client_decision_minutes) AS avg_min
+      FROM validation_ledger
+      WHERE client_decision_minutes IS NOT NULL
+    `).get() as { avg_min: number | null };
+
+    // Benchmark 7: Network Density
+    const network = this.db.prepare(`
+      SELECT AVG(operators_in_network) AS avg_network,
+             AVG(operators_in_metro) AS avg_metro
+      FROM validation_ledger
+      WHERE operators_in_network IS NOT NULL
+    `).get() as { avg_network: number | null; avg_metro: number | null };
+
+    return {
+      ghostSpread: {
+        totalCents: ghost.total,
+        dealCount: ghost.cnt,
+        avgPerDeal: ghost.cnt > 0 ? Math.round(ghost.total / ghost.cnt) : 0,
+      },
+      signalRatio: {
+        rfqsSent: signal.rfqs,
+        quotesReceived: signal.quotes,
+        ratio: signal.rfqs > 0 ? signal.quotes / signal.rfqs : 0,
+      },
+      marginByLiquidity: {
+        high: marginByRli("high"),
+        medium: marginByRli("medium"),
+        low: marginByRli("low"),
+      },
+      pricingAccuracy: {
+        avgAbsDeltaPct: pricing.avg_delta ?? 0,
+        sampleSize: pricing.cnt,
+      },
+      avgClientDecisionMin: decision.avg_min ?? null,
+      networkDensity: {
+        avgOperatorsInNetwork: network.avg_network ?? null,
+        avgOperatorsInMetro: network.avg_metro ?? null,
+      },
+      fleetResilience: {
+        recoveredCount: resilience.recovered ?? 0,
+        failedCount: resilience.failed ?? 0,
+        avgRecoveryMin: resilience.avg_recovery ?? null,
+      },
+    };
   }
 }

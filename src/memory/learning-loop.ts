@@ -478,6 +478,9 @@ function appendValidationLedger(
     ? Math.round(record.decisionTime / 60)
     : null;
 
+  const fleetResUsed = ctx.sourcing.backupOperator !== null &&
+    ctx.sourcing.selectedOperator?.operatorName !== record.operatorName;
+
   const entry: ValidationLedgerEntry = {
     route,
     date: ctx.trip.date || new Date().toISOString().slice(0, 10),
@@ -496,10 +499,15 @@ function appendValidationLedger(
       : null,
     clientDecisionMinutes,
     outcome: outcomeMap[record.result] ?? "lost_other",
-    fleetResilienceUsed: ctx.sourcing.backupOperator !== null &&
-      ctx.sourcing.selectedOperator?.operatorName !== record.operatorName,
+    fleetResilienceUsed: fleetResUsed,
     tripCompleted: record.result === "closed" ? null : false,
     notes: record.guardianFlags.join("; ") || "",
+    // New benchmark fields — populated with defaults, enriched later
+    ghostValueCents: 0,
+    tripOutcome: fleetResUsed ? "disruption_recovered" : "completed",
+    paymentStatus: "pending",
+    operatorName: record.operatorName ?? undefined,
+    operatorBase: record.operatorBase ?? undefined,
   };
 
   store.append(entry);
