@@ -437,6 +437,32 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_faa_aircraft_hex ON faa_aircraft(icao_hex);
     `,
   },
+  {
+    id: 15,
+    name: "create_adsb_completed_legs",
+    sql: `
+      CREATE TABLE IF NOT EXISTS adsb_completed_legs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        icao_hex TEXT NOT NULL,
+        tail_number TEXT,
+        operator_name TEXT,
+        aircraft_type TEXT,
+        aircraft_class TEXT,
+        origin_icao TEXT,
+        destination_icao TEXT,
+        departure_time TEXT NOT NULL,
+        arrival_time TEXT NOT NULL,
+        flight_time_min INTEGER,
+        distance_nm REAL,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_legs_tail ON adsb_completed_legs(tail_number);
+      CREATE INDEX IF NOT EXISTS idx_legs_origin ON adsb_completed_legs(origin_icao);
+      CREATE INDEX IF NOT EXISTS idx_legs_dest ON adsb_completed_legs(destination_icao);
+      CREATE INDEX IF NOT EXISTS idx_legs_class ON adsb_completed_legs(aircraft_class);
+      CREATE INDEX IF NOT EXISTS idx_legs_time ON adsb_completed_legs(departure_time);
+    `,
+  },
 ];
 
 /**
