@@ -8,6 +8,7 @@
 
 import { DealStore } from "../memory/deal-store.js";
 import { ValidationLedgerStore, OperatorProfileStore } from "../memory/composite-stores.js";
+import { KnowledgeGraphStore } from "../memory/knowledge-graph.js";
 import { getDb } from "../memory/database.js";
 
 // ── Lazy stores ─────────────────────────────────────────────────────────
@@ -15,6 +16,7 @@ import { getDb } from "../memory/database.js";
 let _dealStore: DealStore | null = null;
 let _ledger: ValidationLedgerStore | null = null;
 let _operators: OperatorProfileStore | null = null;
+let _kg: KnowledgeGraphStore | null = null;
 
 function ds(): DealStore {
   if (!_dealStore) _dealStore = new DealStore(getDb());
@@ -27,6 +29,10 @@ function vl(): ValidationLedgerStore {
 function op(): OperatorProfileStore {
   if (!_operators) _operators = new OperatorProfileStore(getDb());
   return _operators;
+}
+function kg(): KnowledgeGraphStore {
+  if (!_kg) _kg = new KnowledgeGraphStore(getDb());
+  return _kg;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -117,6 +123,40 @@ export function buildChatContext(dealId?: string): string {
       const label = o.pricingDelta < -0.02 ? " (hungry)" : o.pricingDelta > 0.05 ? " (premium)" : "";
       lines.push(`  ${o.name} (${o.homeBase}): ${sign}${(o.pricingDelta * 100).toFixed(1)}% vs physics${label}`);
     }
+  }
+
+  // KNOWLEDGE GRAPH — airport + operator counts
+  try {
+    const kgSummary = kg().getSummary();
+    if (kgSummary.airportCount > 0 || kgSummary.operatorCount > 0) {
+      lines.push("");
+      lines.push("KNOWLEDGE GRAPH:");
+      lines.push(`  Airports: ${kgSummary.airportCount} seeded`);
+      lines.push(`  Operators: ${kgSummary.operatorCount} Part 135 certified`);
+    }
+
+    // ROUTE info when deal has departure/arrival
+    if (dealId) {
+      const deal = deals.find((d) => d.id === dealId);
+      if (deal?.route?.departure && deal?.route?.arrival) {
+        const depApt = kg().getAirport(deal.route.departure);
+        const arrApt = kg().getAirport(deal.route.arrival);
+        if (depApt || arrApt) {
+          lines.push("");
+          lines.push(`ROUTE (${deal.route.departure} → ${deal.route.arrival}):`);
+          if (depApt) {
+            const depIls = depApt.hasInstrumentApproach ? "ILS" : "VFR";
+            lines.push(`  Dep: ${depApt.city ?? depApt.name}, ${depApt.state ?? depApt.country} — ${depApt.longestRunwayFt ?? "?"}ft runway, ${depIls}`);
+          }
+          if (arrApt) {
+            const arrIls = arrApt.hasInstrumentApproach ? "ILS" : "VFR";
+            lines.push(`  Arr: ${arrApt.city ?? arrApt.name}, ${arrApt.state ?? arrApt.country} — ${arrApt.longestRunwayFt ?? "?"}ft runway, ${arrIls}`);
+          }
+        }
+      }
+    }
+  } catch {
+    // KG tables may not exist yet — skip silently
   }
 
   return lines.join("\n");

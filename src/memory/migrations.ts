@@ -318,6 +318,76 @@ const MIGRATIONS: Migration[] = [
       ALTER TABLE validation_ledger ADD COLUMN updated_at TEXT;
     `,
   },
+  {
+    id: 13,
+    name: "create_knowledge_graph",
+    sql: `
+      CREATE TABLE IF NOT EXISTS faa_aircraft (
+        tail_number TEXT PRIMARY KEY,
+        serial_number TEXT,
+        mfr_model_code TEXT,
+        manufacturer TEXT,
+        model TEXT,
+        common_name TEXT,
+        aircraft_class TEXT,
+        year_manufactured INTEGER,
+        engine_type TEXT,
+        num_engines INTEGER,
+        num_seats INTEGER,
+        owner_name TEXT,
+        owner_city TEXT,
+        owner_state TEXT,
+        registrant_type TEXT,
+        certificate_holder TEXT,
+        certificate_number TEXT,
+        status TEXT DEFAULT 'active',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_faa_aircraft_class ON faa_aircraft(aircraft_class);
+      CREATE INDEX IF NOT EXISTS idx_faa_aircraft_cert ON faa_aircraft(certificate_number);
+      CREATE INDEX IF NOT EXISTS idx_faa_aircraft_model ON faa_aircraft(common_name);
+
+      CREATE TABLE IF NOT EXISTS faa_operators (
+        certificate_number TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        dba_name TEXT,
+        address TEXT,
+        city TEXT,
+        state TEXT,
+        zip TEXT,
+        phone TEXT,
+        aircraft_count INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'active',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_faa_operators_state ON faa_operators(state);
+      CREATE INDEX IF NOT EXISTS idx_faa_operators_name ON faa_operators(name);
+
+      CREATE TABLE IF NOT EXISTS faa_airports (
+        icao_code TEXT PRIMARY KEY,
+        iata_code TEXT,
+        faa_id TEXT,
+        name TEXT NOT NULL,
+        city TEXT,
+        state TEXT,
+        country TEXT DEFAULT 'US',
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        elevation_ft INTEGER,
+        longest_runway_ft INTEGER,
+        runway_surface TEXT,
+        has_instrument_approach INTEGER DEFAULT 0,
+        fuel_types TEXT,
+        tower_controlled INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'active',
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_faa_airports_state ON faa_airports(state);
+      CREATE INDEX IF NOT EXISTS idx_faa_airports_coords ON faa_airports(latitude, longitude);
+    `,
+  },
 ];
 
 /**

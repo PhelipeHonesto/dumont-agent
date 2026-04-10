@@ -6,3 +6,4 @@ export * from "./conversation.js";
 export * from "./call.js";
 export * from "./channel-config.js";
 export * from "./adsb.js";
+export * from "./knowledge-graph.js";
