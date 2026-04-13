@@ -16,20 +16,27 @@ import { asyncHandler } from "../middleware.js";
 import { getDb } from "../../memory/database.js";
 import { KnowledgeGraphStore } from "../../memory/knowledge-graph.js";
 import { getDataHealth, getFeedHealth } from "../../monitoring/health-queries.js";
+import {
+  validateTailNumber, validateIcaoCode, validatePositiveInt,
+  sanitizeString, SanitizeError,
+} from "../middleware/sanitize.js";
 
 export const intelligenceRouter = Router();
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function clampLimit(raw: unknown, defaultVal = 50, max = 200): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n < 1) return defaultVal;
-  return Math.min(n, max);
-}
-
 function clampOffset(raw: unknown): number {
   const n = Number(raw);
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+}
+
+// Catch SanitizeError and return 400
+function handleSanitizeError(err: unknown, res: Response): boolean {
+  if (err instanceof SanitizeError) {
+    res.status(err.status).json({ error: err.message });
+    return true;
+  }
+  return false;
 }
 
 // ── GET /api/aircraft/:tailNumber ──────────────────────────────────────────
@@ -37,7 +44,9 @@ function clampOffset(raw: unknown): number {
 intelligenceRouter.get(
   "/api/aircraft/:tailNumber",
   asyncHandler(async (req: Request, res: Response) => {
-    const tail = String(req.params.tailNumber).toUpperCase();
+    let tail: string;
+    try { tail = validateTailNumber(req.params.tailNumber); }
+    catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
     const db = getDb();
 
     // Core registration
@@ -167,8 +176,10 @@ intelligenceRouter.get(
 intelligenceRouter.get(
   "/api/aircraft/:tailNumber/flights",
   asyncHandler(async (req: Request, res: Response) => {
-    const tail = String(req.params.tailNumber).toUpperCase();
-    const limit = clampLimit(req.query.limit);
+    let tail: string;
+    try { tail = validateTailNumber(req.params.tailNumber); }
+    catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
+    const limit = validatePositiveInt(req.query.limit, 50, 200);
     const offset = clampOffset(req.query.offset);
     const db = getDb();
 
@@ -221,7 +232,9 @@ intelligenceRouter.get(
 intelligenceRouter.get(
   "/api/airport/:icao/ghosts",
   asyncHandler(async (req: Request, res: Response) => {
-    const icao = String(req.params.icao).toUpperCase();
+    let icao: string;
+    try { icao = validateIcaoCode(req.params.icao); }
+    catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
     const aircraftClass = String(req.query.class ?? "");
     const maxHours = req.query.maxHours ? Number(req.query.maxHours) : undefined;
     const db = getDb();
@@ -325,8 +338,11 @@ intelligenceRouter.get(
 intelligenceRouter.get(
   "/api/routes/:origin/:destination",
   asyncHandler(async (req: Request, res: Response) => {
-    const origin = String(req.params.origin).toUpperCase();
-    const destination = String(req.params.destination).toUpperCase();
+    let origin: string, destination: string;
+    try {
+      origin = validateIcaoCode(req.params.origin);
+      destination = validateIcaoCode(req.params.destination);
+    } catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
     const db = getDb();
 
     // Frequency and timing
@@ -399,9 +415,11 @@ intelligenceRouter.get(
 intelligenceRouter.get(
   "/api/market/listings",
   asyncHandler(async (req: Request, res: Response) => {
-    const limit = clampLimit(req.query.limit);
+    const limit = validatePositiveInt(req.query.limit, 50, 200);
     const offset = clampOffset(req.query.offset);
-    const status = String(req.query.status ?? "active");
+    let status: string;
+    try { status = sanitizeString(req.query.status ?? "active", 20); }
+    catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
     const db = getDb();
 
     const listings = db.prepare(
@@ -444,7 +462,7 @@ intelligenceRouter.get(
 intelligenceRouter.get(
   "/api/market/transactions",
   asyncHandler(async (req: Request, res: Response) => {
-    const limit = clampLimit(req.query.limit);
+    const limit = validatePositiveInt(req.query.limit, 50, 200);
     const offset = clampOffset(req.query.offset);
     const db = getDb();
 

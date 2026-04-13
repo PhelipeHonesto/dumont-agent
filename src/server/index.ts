@@ -16,6 +16,7 @@ import { radarRouter } from "./routes/radar.js";
 import { intelligenceRouter } from "./routes/intelligence.js";
 import { analyticsRouter } from "./routes/analytics.js";
 import { closeDb } from "../memory/database.js";
+import { globalLimiter, heavyLimiter } from "./middleware/rate-limit.js";
 
 // ── Env Validation ──────────────────────────────────────────────────────
 
@@ -32,11 +33,15 @@ if (!process.env.VAPI_SECRET) {
 
 // ── CORS ────────────────────────────────────────────────────────────────
 
+const PROD_ORIGINS = [
+  "https://orangesunshineaviation.com",
+  "https://www.orangesunshineaviation.com",
+  "https://api.orangesunshineaviation.com",
+];
+
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
-  : IS_PROD
-    ? [] // In production, require explicit ALLOWED_ORIGINS
-    : ["http://localhost:5174", "http://localhost:3001"]; // Dev: dashboard + server
+  : PROD_ORIGINS;
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
@@ -46,10 +51,18 @@ app.use(cors({
     // Allow requests with no origin (server-to-server, curl, Vapi webhooks)
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    // Dev: allow any localhost origin
+    if (!IS_PROD && origin.match(/^http:\/\/localhost(:\d+)?$/)) return callback(null, true);
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
 }));
 app.use(express.json());
+
+// Rate limiting — global + heavy endpoint limiter
+app.use(globalLimiter);
+app.use("/api/analytics", heavyLimiter);
+app.use("/api/routes", heavyLimiter);
+app.use("/api/market", heavyLimiter);
 
 app.use(conversationRouter);
 app.use(healthRouter);

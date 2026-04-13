@@ -1,6 +1,6 @@
 /**
  * Analytics API — WINGX-equivalent market intelligence endpoints.
- * No auth required.
+ * No auth required. Input validated.
  *
  * GET /api/analytics/market?month=2026-03
  * GET /api/analytics/operator/:name?months=6
@@ -25,15 +25,29 @@ import {
   getTopOperators,
   getFuelEstimate,
 } from "../../analytics/wingx-queries.js";
+import {
+  validateIcaoCode, validateMonth, validateDate, validatePositiveInt,
+  validateAircraftClass, sanitizeString, SanitizeError,
+} from "../middleware/sanitize.js";
 
 export const analyticsRouter = Router();
+
+function handleSanitizeError(err: unknown, res: Response): boolean {
+  if (err instanceof SanitizeError) {
+    res.status(err.status).json({ error: err.message });
+    return true;
+  }
+  return false;
+}
 
 // ── GET /api/analytics/market ─────────────────────────────────────────────
 
 analyticsRouter.get(
   "/api/analytics/market",
   asyncHandler(async (req: Request, res: Response) => {
-    const month = req.query.month ? String(req.query.month) : undefined;
+    let month: string | undefined;
+    try { month = validateMonth(req.query.month); }
+    catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
     res.json(getMarketOverview(getDb(), month));
   }),
 );
@@ -43,8 +57,10 @@ analyticsRouter.get(
 analyticsRouter.get(
   "/api/analytics/operator/:name",
   asyncHandler(async (req: Request, res: Response) => {
-    const name = decodeURIComponent(String(req.params.name));
-    const months = req.query.months ? Number(req.query.months) : 6;
+    let name: string;
+    try { name = sanitizeString(decodeURIComponent(String(req.params.name))); }
+    catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
+    const months = validatePositiveInt(req.query.months, 6, 24);
     res.json(getOperatorProfile(getDb(), name, months));
   }),
 );
@@ -54,8 +70,12 @@ analyticsRouter.get(
 analyticsRouter.get(
   "/api/analytics/airport/:icao",
   asyncHandler(async (req: Request, res: Response) => {
-    const icao = String(req.params.icao).toUpperCase();
-    const date = req.query.date ? String(req.query.date) : undefined;
+    let icao: string;
+    let date: string | undefined;
+    try {
+      icao = validateIcaoCode(req.params.icao);
+      date = validateDate(req.query.date);
+    } catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
     res.json(getAirportReport(getDb(), icao, date));
   }),
 );
@@ -65,9 +85,12 @@ analyticsRouter.get(
 analyticsRouter.get(
   "/api/analytics/route/:origin/:destination",
   asyncHandler(async (req: Request, res: Response) => {
-    const origin = String(req.params.origin).toUpperCase();
-    const destination = String(req.params.destination).toUpperCase();
-    const months = req.query.months ? Number(req.query.months) : 12;
+    let origin: string, destination: string;
+    try {
+      origin = validateIcaoCode(req.params.origin);
+      destination = validateIcaoCode(req.params.destination);
+    } catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
+    const months = validatePositiveInt(req.query.months, 12, 60);
     res.json(getRouteTrend(getDb(), origin, destination, months));
   }),
 );
@@ -77,7 +100,9 @@ analyticsRouter.get(
 analyticsRouter.get(
   "/api/analytics/fleet",
   asyncHandler(async (req: Request, res: Response) => {
-    const cls = req.query.class ? String(req.query.class) : undefined;
+    let cls: string | undefined;
+    try { cls = validateAircraftClass(req.query.class); }
+    catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
     res.json(getFleetHealth(getDb(), cls));
   }),
 );
@@ -87,8 +112,10 @@ analyticsRouter.get(
 analyticsRouter.get(
   "/api/analytics/top-routes",
   asyncHandler(async (req: Request, res: Response) => {
-    const month = req.query.month ? String(req.query.month) : undefined;
-    const limit = req.query.limit ? Math.min(Number(req.query.limit), 100) : 20;
+    let month: string | undefined;
+    try { month = validateMonth(req.query.month); }
+    catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
+    const limit = validatePositiveInt(req.query.limit, 20, 100);
     res.json(getTopRoutes(getDb(), month, limit));
   }),
 );
@@ -98,8 +125,10 @@ analyticsRouter.get(
 analyticsRouter.get(
   "/api/analytics/top-operators",
   asyncHandler(async (req: Request, res: Response) => {
-    const month = req.query.month ? String(req.query.month) : undefined;
-    const limit = req.query.limit ? Math.min(Number(req.query.limit), 100) : 20;
+    let month: string | undefined;
+    try { month = validateMonth(req.query.month); }
+    catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
+    const limit = validatePositiveInt(req.query.limit, 20, 100);
     res.json(getTopOperators(getDb(), month, limit));
   }),
 );
@@ -109,9 +138,16 @@ analyticsRouter.get(
 analyticsRouter.get(
   "/api/analytics/fuel/:origin/:destination/:class",
   asyncHandler(async (req: Request, res: Response) => {
-    const origin = String(req.params.origin).toUpperCase();
-    const destination = String(req.params.destination).toUpperCase();
-    const cls = String(req.params.class);
+    let origin: string, destination: string, cls: string | undefined;
+    try {
+      origin = validateIcaoCode(req.params.origin);
+      destination = validateIcaoCode(req.params.destination);
+      cls = validateAircraftClass(req.params.class);
+    } catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
+    if (!cls) {
+      res.status(400).json({ error: "Aircraft class is required" });
+      return;
+    }
     res.json(getFuelEstimate(getDb(), origin, destination, cls));
   }),
 );
