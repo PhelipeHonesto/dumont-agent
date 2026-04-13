@@ -21,8 +21,7 @@ import { closeDb } from "../memory/database.js";
 const IS_PROD = process.env.NODE_ENV === "production";
 
 if (!process.env.ANTHROPIC_API_KEY) {
-  console.error("[dumont] FATAL: ANTHROPIC_API_KEY is required");
-  process.exit(1);
+  console.warn("[dumont] WARNING: ANTHROPIC_API_KEY not set — chat/LLM endpoints will fail, intelligence API will work");
 }
 
 if (!process.env.VAPI_SECRET) {

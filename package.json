@@ -5,10 +5,7 @@
   "type": "module",
   "main": "dist/orchestrator/index.js",
   "workspaces": [
-    "dashboard",
-    "website",
-    "whatsapp-bridge",
-    "ingestion/faa-registry"
+    "dashboard"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present && echo 'root: skip'",
