@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "dumont-intelligence": {
+      "command": "npx",
+      "args": ["tsx", "src/mcp/server.ts"],
+      "cwd": "/Users/phelipehonesto/osa/dumont-agent"
+    }
+  }
+}

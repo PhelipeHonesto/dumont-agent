@@ -1,0 +1,1 @@
+Build FAA registry ingestor: Download ReleasableAircraft.zip from registry.faa.gov, parse MASTER.txt and ACFTREF.txt, filter to charter-relevant aircraft, and insert into data/dumont.db using better-sqlite3. Output row counts by aircraft_class. Write as single .mjs file with no external dependencies beyond better-sqlite3.

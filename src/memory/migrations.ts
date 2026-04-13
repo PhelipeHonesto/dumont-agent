@@ -463,6 +463,322 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_legs_time ON adsb_completed_legs(departure_time);
     `,
   },
+  {
+    id: 16,
+    name: "create_deal_outcomes",
+    sql: `
+      CREATE TABLE IF NOT EXISTS deal_outcomes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        deal_id TEXT NOT NULL REFERENCES deals(id),
+        quoted_price_cents INTEGER NOT NULL,
+        actual_price_cents INTEGER NOT NULL,
+        client_accepted INTEGER NOT NULL DEFAULT 0,
+        operator_response_time_seconds INTEGER NOT NULL DEFAULT 0,
+        aircraft_substituted INTEGER NOT NULL DEFAULT 0,
+        substitution_details TEXT,
+        reason_lost TEXT CHECK (reason_lost IS NULL OR reason_lost IN ('price', 'timing', 'aircraft', 'competitor', 'other')),
+        dumont_confidence_at_quote REAL NOT NULL DEFAULT 0,
+        price_error_pct REAL NOT NULL DEFAULT 0,
+        operator_name TEXT NOT NULL,
+        aircraft_class TEXT NOT NULL,
+        route_origin TEXT NOT NULL,
+        route_destination TEXT NOT NULL,
+        lead_time_hours REAL NOT NULL DEFAULT 0,
+        day_of_week INTEGER NOT NULL DEFAULT 0 CHECK (day_of_week >= 0 AND day_of_week <= 6),
+        currency TEXT NOT NULL DEFAULT 'USD',
+        schema_version INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_deal_outcomes_deal_id ON deal_outcomes(deal_id);
+      CREATE INDEX IF NOT EXISTS idx_deal_outcomes_operator ON deal_outcomes(operator_name);
+      CREATE INDEX IF NOT EXISTS idx_deal_outcomes_route ON deal_outcomes(route_origin, route_destination);
+      CREATE INDEX IF NOT EXISTS idx_deal_outcomes_class ON deal_outcomes(aircraft_class);
+    `,
+  },
+  {
+    id: 17,
+    name: "create_faa_registry_changes",
+    sql: `
+      CREATE TABLE IF NOT EXISTS faa_registry_changes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tail_number TEXT NOT NULL,
+        change_type TEXT NOT NULL CHECK (change_type IN ('new', 'deregistered', 'ownership_change', 'field_change')),
+        field_name TEXT,
+        old_value TEXT,
+        new_value TEXT,
+        detected_at TEXT NOT NULL DEFAULT (datetime('now')),
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE INDEX IF NOT EXISTS idx_faa_changes_tail ON faa_registry_changes(tail_number);
+      CREATE INDEX IF NOT EXISTS idx_faa_changes_type ON faa_registry_changes(change_type);
+      CREATE INDEX IF NOT EXISTS idx_faa_changes_date ON faa_registry_changes(detected_at);
+    `,
+  },
+  {
+    id: 18,
+    name: "create_pipeline_runs",
+    sql: `
+      CREATE TABLE IF NOT EXISTS pipeline_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed')),
+        steps_completed INTEGER NOT NULL DEFAULT 0,
+        failed_step TEXT,
+        new_aircraft INTEGER NOT NULL DEFAULT 0,
+        deregistered INTEGER NOT NULL DEFAULT 0,
+        ownership_changes INTEGER NOT NULL DEFAULT 0,
+        field_changes INTEGER NOT NULL DEFAULT 0,
+        aircraft_classified INTEGER NOT NULL DEFAULT 0,
+        ghost_candidates INTEGER NOT NULL DEFAULT 0,
+        total_in_graph INTEGER NOT NULL DEFAULT 0,
+        charter_tracked INTEGER NOT NULL DEFAULT 0,
+        error_message TEXT,
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE INDEX IF NOT EXISTS idx_pipeline_runs_date ON pipeline_runs(started_at);
+    `,
+  },
+  {
+    id: 19,
+    name: "create_faa_docindex",
+    sql: `
+      CREATE TABLE IF NOT EXISTS faa_docindex (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tail_number TEXT,
+        collateral_type INTEGER NOT NULL,
+        collateral_raw TEXT NOT NULL,
+        party_name TEXT,
+        doc_id TEXT,
+        doc_type TEXT NOT NULL,
+        receipt_date TEXT,
+        processing_date TEXT,
+        correction_date TEXT,
+        correction_id TEXT,
+        serial_id TEXT,
+        faa_aircraft_match INTEGER NOT NULL DEFAULT 0,
+        aircraft_class TEXT,
+        owner_name TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        schema_version INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(collateral_raw, doc_id, receipt_date, doc_type, serial_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_docindex_tail ON faa_docindex(tail_number);
+      CREATE INDEX IF NOT EXISTS idx_docindex_type ON faa_docindex(doc_type);
+      CREATE INDEX IF NOT EXISTS idx_docindex_date ON faa_docindex(receipt_date);
+      CREATE INDEX IF NOT EXISTS idx_docindex_serial ON faa_docindex(serial_id);
+      CREATE INDEX IF NOT EXISTS idx_docindex_collateral_type ON faa_docindex(collateral_type);
+    `,
+  },
+  {
+    id: 20,
+    name: "create_pilot_contacts",
+    sql: `
+      CREATE TABLE IF NOT EXISTS pilot_contacts (
+        certificate_number TEXT PRIMARY KEY,
+        first_middle_name TEXT,
+        last_name TEXT,
+        street1 TEXT,
+        street2 TEXT,
+        city TEXT,
+        state TEXT,
+        zip TEXT,
+        country TEXT,
+        region TEXT,
+        medical_class TEXT,
+        medical_date TEXT,
+        medical_expire_date TEXT,
+        ratings TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE INDEX IF NOT EXISTS idx_pilot_contacts_state ON pilot_contacts(state);
+      CREATE INDEX IF NOT EXISTS idx_pilot_contacts_city_state ON pilot_contacts(city, state);
+      CREATE INDEX IF NOT EXISTS idx_pilot_contacts_last_name ON pilot_contacts(last_name);
+
+      CREATE TABLE IF NOT EXISTS pilot_aircraft_link (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        certificate_number TEXT NOT NULL REFERENCES pilot_contacts(certificate_number),
+        tail_number TEXT NOT NULL,
+        pilot_name TEXT NOT NULL,
+        pilot_city TEXT,
+        pilot_state TEXT,
+        aircraft_base_icao TEXT,
+        aircraft_base_city TEXT,
+        aircraft_base_state TEXT,
+        aircraft_class TEXT,
+        operator_name TEXT,
+        match_type TEXT NOT NULL DEFAULT 'city_state',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        schema_version INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(certificate_number, tail_number)
+      );
+      CREATE INDEX IF NOT EXISTS idx_pal_tail ON pilot_aircraft_link(tail_number);
+      CREATE INDEX IF NOT EXISTS idx_pal_cert ON pilot_aircraft_link(certificate_number);
+      CREATE INDEX IF NOT EXISTS idx_pal_state ON pilot_aircraft_link(pilot_state);
+      CREATE INDEX IF NOT EXISTS idx_pal_base ON pilot_aircraft_link(aircraft_base_icao);
+    `,
+  },
+  {
+    id: 21,
+    name: "create_aircraft_listings",
+    sql: `
+      CREATE TABLE IF NOT EXISTS aircraft_listings (
+        tail_number TEXT NOT NULL,
+        source TEXT NOT NULL CHECK (source IN ('avbuyer', 'controller', 'trade-a-plane')),
+        listing_url TEXT,
+        asking_price_cents INTEGER,
+        currency TEXT NOT NULL DEFAULT 'USD',
+        aircraft_type TEXT,
+        year INTEGER,
+        description TEXT,
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        price_history_json TEXT NOT NULL DEFAULT '[]',
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'reduced', 'delisted', 'sold')),
+        days_on_market INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        schema_version INTEGER NOT NULL DEFAULT 1,
+        PRIMARY KEY (tail_number, source)
+      );
+      CREATE INDEX IF NOT EXISTS idx_listings_status ON aircraft_listings(status);
+      CREATE INDEX IF NOT EXISTS idx_listings_type ON aircraft_listings(aircraft_type);
+      CREATE INDEX IF NOT EXISTS idx_listings_price ON aircraft_listings(asking_price_cents);
+      CREATE INDEX IF NOT EXISTS idx_listings_first_seen ON aircraft_listings(first_seen_at);
+      CREATE INDEX IF NOT EXISTS idx_listings_days ON aircraft_listings(days_on_market);
+    `,
+  },
+  {
+    id: 22,
+    name: "create_target_companies",
+    sql: `
+      CREATE TABLE IF NOT EXISTS target_companies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_name TEXT NOT NULL UNIQUE,
+        tail_numbers TEXT NOT NULL DEFAULT '[]',
+        aircraft_classes TEXT NOT NULL DEFAULT '[]',
+        fleet_size INTEGER NOT NULL DEFAULT 0,
+        estimated_annual_trips INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE INDEX IF NOT EXISTS idx_target_companies_fleet ON target_companies(fleet_size);
+      CREATE INDEX IF NOT EXISTS idx_target_companies_trips ON target_companies(estimated_annual_trips);
+
+      CREATE TABLE IF NOT EXISTS target_contacts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER NOT NULL REFERENCES target_companies(id),
+        name TEXT,
+        title TEXT,
+        email TEXT,
+        phone TEXT,
+        source TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE INDEX IF NOT EXISTS idx_target_contacts_company ON target_contacts(company_id);
+    `,
+  },
+  {
+    id: 23,
+    name: "create_eval_runs",
+    sql: `
+      CREATE TABLE IF NOT EXISTS eval_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id TEXT NOT NULL,
+        scenario_id TEXT NOT NULL,
+        scenario_title TEXT NOT NULL,
+        departure TEXT,
+        arrival TEXT,
+        aircraft_class TEXT,
+        estimate_low_cents INTEGER,
+        estimate_high_cents INTEGER,
+        estimate_median_cents INTEGER,
+        osa_price_cents INTEGER,
+        market_low_cents INTEGER,
+        market_high_cents INTEGER,
+        within_20_pct INTEGER NOT NULL DEFAULT 0,
+        error_pct REAL,
+        status TEXT NOT NULL CHECK (status IN ('pass', 'fail', 'skip', 'error')),
+        error_message TEXT,
+        duration_ms INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE INDEX IF NOT EXISTS idx_eval_runs_run_id ON eval_runs(run_id);
+      CREATE INDEX IF NOT EXISTS idx_eval_runs_scenario ON eval_runs(scenario_id);
+      CREATE INDEX IF NOT EXISTS idx_eval_runs_status ON eval_runs(status);
+
+      CREATE TABLE IF NOT EXISTS eval_run_summaries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id TEXT NOT NULL UNIQUE,
+        total_scenarios INTEGER NOT NULL,
+        scored_scenarios INTEGER NOT NULL,
+        within_20_pct_count INTEGER NOT NULL,
+        accuracy_pct REAL NOT NULL,
+        mean_error_pct REAL,
+        median_error_pct REAL,
+        max_error_pct REAL,
+        duration_ms INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE INDEX IF NOT EXISTS idx_eval_summaries_run ON eval_run_summaries(run_id);
+    `,
+  },
+  {
+    id: 24,
+    name: "create_backfill_progress",
+    sql: `
+      CREATE TABLE IF NOT EXISTS backfill_progress (
+        date TEXT PRIMARY KEY,
+        status TEXT NOT NULL CHECK (status IN ('pending', 'processing', 'complete', 'failed')),
+        legs_found INTEGER NOT NULL DEFAULT 0,
+        charter_legs INTEGER NOT NULL DEFAULT 0,
+        duration_seconds INTEGER NOT NULL DEFAULT 0,
+        processed_at TEXT,
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+    `,
+  },
+  {
+    id: 25,
+    name: "add_safety_ratings",
+    sql: `
+      ALTER TABLE faa_operators ADD COLUMN argus_rating TEXT CHECK (argus_rating IS NULL OR argus_rating IN ('gold', 'gold_plus', 'platinum', 'platinum_elite'));
+      ALTER TABLE faa_operators ADD COLUMN wyvern_rating TEXT CHECK (wyvern_rating IS NULL OR wyvern_rating IN ('wingman'));
+      ALTER TABLE faa_operators ADD COLUMN is_bao_stage INTEGER CHECK (is_bao_stage IS NULL OR is_bao_stage IN (1, 2, 3));
+      ALTER TABLE faa_operators ADD COLUMN safety_verified_at TEXT;
+
+      CREATE TABLE IF NOT EXISTS knowledge_graph (
+        icao_hex TEXT PRIMARY KEY,
+        tail_number TEXT,
+        owner_name TEXT,
+        operator_name TEXT,
+        manufacturer TEXT,
+        model TEXT,
+        common_name TEXT,
+        aircraft_class TEXT,
+        year_manufactured INTEGER,
+        num_seats INTEGER,
+        certificate_number TEXT,
+        state TEXT,
+        latitude REAL,
+        longitude REAL,
+        nearest_airport TEXT,
+        idle_since TEXT,
+        idle_hours REAL DEFAULT 0,
+        last_seen TEXT,
+        last_leg_origin TEXT,
+        last_leg_dest TEXT
+      );
+
+      ALTER TABLE knowledge_graph ADD COLUMN operator_argus TEXT;
+      ALTER TABLE knowledge_graph ADD COLUMN operator_wyvern TEXT;
+      ALTER TABLE knowledge_graph ADD COLUMN operator_safety_score INTEGER DEFAULT 0;
+    `,
+  },
 ];
 
 /**

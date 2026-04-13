@@ -19,3 +19,4 @@ data/
 .claude/
 *.log
 *.json.bak
+.gstack/
