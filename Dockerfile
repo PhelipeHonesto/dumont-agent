@@ -13,10 +13,8 @@ RUN npm ci --ignore-scripts && npm rebuild better-sqlite3
 # Copy source (data/ is excluded via .dockerignore — lives on volume)
 COPY . .
 
-# Volume mount point for SQLite database
-VOLUME ["/data"]
-
 EXPOSE 3001
 
-# Default: API server. Override CMD for worker/cron services.
-CMD ["npm", "run", "server"]
+# Default: seed DB (if empty volume) then start API server.
+# Override CMD for worker/cron services.
+CMD ["sh", "-c", "npx tsx src/scripts/seed-db.ts && npx tsx src/server/index.ts"]
