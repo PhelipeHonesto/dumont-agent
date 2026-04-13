@@ -35,7 +35,8 @@
     "backfill:history": "tsx src/ingestion/history-backfill.ts",
     "ingest:operators": "tsx src/ingestion/faa-operators-full.ts",
     "ingest:safety": "tsx src/ingestion/safety-ratings.ts",
-    "mcp:serve": "tsx src/mcp/server.ts"
+    "mcp:serve": "tsx src/mcp/server.ts",
+    "mcp:sse": "tsx src/mcp/server-sse.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
