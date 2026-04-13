@@ -37,20 +37,22 @@ function checkAuth(req: http.IncomingMessage, res: http.ServerResponse): boolean
   return false;
 }
 
-// ── Server setup ────────────────────────────────────────────────────────
+// ── Per-session server factory ──────────────────────────────────────────
 
-const mcpServer = new McpServer(
-  { name: "dumont-intelligence", version: "1.0.0" },
-  {
-    capabilities: { tools: {} },
-    instructions:
-      "Dumont Aviation Intelligence — query FAA registry, ADS-B flight data, " +
-      "ghost fleet candidates, market listings, and route analytics for US " +
-      "charter-class aircraft.",
-  },
-);
+const MCP_SERVER_INFO = { name: "dumont-intelligence", version: "1.0.0" } as const;
+const MCP_SERVER_OPTS = {
+  capabilities: { tools: {} },
+  instructions:
+    "Dumont Aviation Intelligence — query FAA registry, ADS-B flight data, " +
+    "ghost fleet candidates, market listings, and route analytics for US " +
+    "charter-class aircraft.",
+} as const;
 
-registerTools(mcpServer);
+function createSession(): McpServer {
+  const server = new McpServer(MCP_SERVER_INFO, MCP_SERVER_OPTS);
+  registerTools(server);
+  return server;
+}
 
 // Track active transports by session ID
 const transports = new Map<string, SSEServerTransport>();
@@ -76,13 +78,15 @@ const httpServer = http.createServer(async (req, res) => {
     if (!checkAuth(req, res)) return;
 
     const transport = new SSEServerTransport("/messages", res);
+    const session = createSession();
     transports.set(transport.sessionId, transport);
 
     transport.onclose = () => {
       transports.delete(transport.sessionId);
+      session.close().catch(() => {});
     };
 
-    await mcpServer.connect(transport);
+    await session.connect(transport);
     return;
   }
 
