@@ -38,7 +38,11 @@
     "mcp:serve": "tsx src/mcp/server.ts",
     "mcp:sse": "tsx src/mcp/server-sse.ts",
     "archive:adsb": "tsx src/ingestion/archive-adsb-raw.ts",
-    "analytics:build": "tsx src/analytics/wingx-engine.ts"
+    "analytics:build": "tsx src/analytics/wingx-engine.ts",
+    "ingest:faa-full": "tsx src/ingestion/faa-full-ingest.ts",
+    "ingest:ntsb": "tsx src/ingestion/ntsb-ingest.ts",
+    "archive:faa": "tsx src/ingestion/archive-faa-raw.ts",
+    "quality:check": "tsx src/analytics/data-quality.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

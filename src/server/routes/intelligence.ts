@@ -16,6 +16,7 @@ import { asyncHandler } from "../middleware.js";
 import { getDb } from "../../memory/database.js";
 import { KnowledgeGraphStore } from "../../memory/knowledge-graph.js";
 import { getDataHealth, getFeedHealth } from "../../monitoring/health-queries.js";
+import { getLatestQualityReport } from "../../analytics/data-quality.js";
 import {
   validateTailNumber, validateIcaoCode, validatePositiveInt,
   sanitizeString, SanitizeError,
@@ -519,5 +520,20 @@ intelligenceRouter.get(
     const feed = getFeedHealth(getDb());
     const statusCode = feed.feedStatus === "dead" ? 503 : 200;
     res.status(statusCode).json(feed);
+  }),
+);
+
+// ── GET /api/health/quality ───────────────────────────────────────────────
+
+intelligenceRouter.get(
+  "/api/health/quality",
+  asyncHandler(async (_req: Request, res: Response) => {
+    const report = getLatestQualityReport(getDb());
+    if (!report) {
+      res.status(404).json({ error: "No quality report available — run npm run quality:check" });
+      return;
+    }
+    const statusCode = report.overallStatus === "red" ? 503 : 200;
+    res.status(statusCode).json(report);
   }),
 );

@@ -886,6 +886,120 @@ const MIGRATIONS: Migration[] = [
         ('turboprop', 80, 6.50);
     `,
   },
+  {
+    id: 28,
+    name: "create_faa_reference_tables",
+    sql: `
+      CREATE TABLE IF NOT EXISTS faa_deregistered (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tail_number TEXT NOT NULL,
+        serial_number TEXT,
+        manufacturer TEXT,
+        model TEXT,
+        common_name TEXT,
+        aircraft_class TEXT,
+        year_manufactured TEXT,
+        owner_name TEXT,
+        owner_city TEXT,
+        owner_state TEXT,
+        owner_country TEXT,
+        certificate_holder TEXT,
+        cancel_date TEXT,
+        last_action_date TEXT,
+        status TEXT,
+        mode_s_hex TEXT,
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE INDEX IF NOT EXISTS idx_faa_dereg_tail ON faa_deregistered(tail_number);
+      CREATE INDEX IF NOT EXISTS idx_faa_dereg_cancel ON faa_deregistered(cancel_date);
+      CREATE INDEX IF NOT EXISTS idx_faa_dereg_holder ON faa_deregistered(certificate_holder);
+
+      CREATE TABLE IF NOT EXISTS faa_aircraft_types (
+        model_code TEXT PRIMARY KEY,
+        manufacturer TEXT,
+        model TEXT,
+        type_aircraft TEXT,
+        num_engines INTEGER,
+        num_seats INTEGER,
+        weight_class TEXT,
+        speed TEXT,
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+
+      CREATE TABLE IF NOT EXISTS faa_engine_types (
+        engine_code TEXT PRIMARY KEY,
+        manufacturer TEXT,
+        model TEXT,
+        type_engine TEXT,
+        horsepower TEXT,
+        thrust TEXT,
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+    `,
+  },
+  {
+    id: 29,
+    name: "create_ntsb_accidents",
+    sql: `
+      CREATE TABLE IF NOT EXISTS ntsb_accidents (
+        event_id TEXT PRIMARY KEY,
+        investigation_type TEXT,
+        event_date TEXT,
+        location TEXT,
+        city TEXT,
+        state TEXT,
+        country TEXT,
+        latitude REAL,
+        longitude REAL,
+        airport_code TEXT,
+        airport_name TEXT,
+        injury_severity TEXT,
+        aircraft_damage TEXT,
+        registration_number TEXT,
+        aircraft_make TEXT,
+        aircraft_model TEXT,
+        aircraft_category TEXT,
+        amateur_built TEXT,
+        number_of_engines INTEGER,
+        engine_type TEXT,
+        far_description TEXT,
+        total_fatal_injuries INTEGER,
+        total_serious_injuries INTEGER,
+        total_minor_injuries INTEGER,
+        total_uninjured INTEGER,
+        weather_condition TEXT,
+        broad_phase_of_flight TEXT,
+        report_status TEXT,
+        publication_date TEXT,
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE INDEX IF NOT EXISTS idx_ntsb_reg ON ntsb_accidents(registration_number);
+      CREATE INDEX IF NOT EXISTS idx_ntsb_date ON ntsb_accidents(event_date);
+      CREATE INDEX IF NOT EXISTS idx_ntsb_airport ON ntsb_accidents(airport_code);
+      CREATE INDEX IF NOT EXISTS idx_ntsb_far ON ntsb_accidents(far_description);
+      CREATE INDEX IF NOT EXISTS idx_ntsb_severity ON ntsb_accidents(injury_severity);
+    `,
+  },
+  {
+    id: 30,
+    name: "create_data_quality_runs",
+    sql: `
+      CREATE TABLE IF NOT EXISTS data_quality_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_at TEXT NOT NULL DEFAULT (datetime('now')),
+        malformed_tails INTEGER NOT NULL DEFAULT 0,
+        invalid_icao INTEGER NOT NULL DEFAULT 0,
+        duplicate_legs INTEGER NOT NULL DEFAULT 0,
+        orphaned_records INTEGER NOT NULL DEFAULT 0,
+        empty_fields INTEGER NOT NULL DEFAULT 0,
+        stale_data INTEGER NOT NULL DEFAULT 0,
+        anomalies INTEGER NOT NULL DEFAULT 0,
+        overall_status TEXT NOT NULL CHECK (overall_status IN ('green', 'yellow', 'red')),
+        details TEXT,
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+    `,
+  },
 ];
 
 /**
