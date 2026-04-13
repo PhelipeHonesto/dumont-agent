@@ -5,7 +5,6 @@
  */
 
 import express from "express";
-import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { conversationRouter } from "./routes/conversation.js";
 import { healthRouter } from "./routes/health.js";
@@ -15,8 +14,10 @@ import { chatRouter } from "./routes/chat.js";
 import { radarRouter } from "./routes/radar.js";
 import { intelligenceRouter } from "./routes/intelligence.js";
 import { analyticsRouter } from "./routes/analytics.js";
+import { dashboardRouter } from "./routes/dashboard.js";
 import { closeDb } from "../memory/database.js";
 import { globalLimiter, heavyLimiter } from "./middleware/rate-limit.js";
+import { errorTracker, errorRouter } from "./middleware/error-tracker.js";
 
 // ── Env Validation ──────────────────────────────────────────────────────
 
@@ -72,15 +73,12 @@ app.use(chatRouter);
 app.use(radarRouter);
 app.use(intelligenceRouter);
 app.use(analyticsRouter);
+app.use(errorRouter);
+app.use(dashboardRouter);
 
-// ── Global Error Handler ────────────────────────────────────────────────
+// ── Global Error Handler (must be last) ───────────────────────────────────
 
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(`[dumont] Unhandled error: ${err.message}`);
-  if (!res.headersSent) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+app.use(errorTracker);
 
 // ── Start + Graceful Shutdown ───────────────────────────────────────────
 
