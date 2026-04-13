@@ -9,6 +9,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getDb } from "../memory/database.js";
 import { KnowledgeGraphStore } from "../memory/knowledge-graph.js";
 import { getDataHealth, getFeedHealth } from "../monitoring/health-queries.js";
+import { getMarketOverview, getOperatorProfile, getAirportReport } from "../analytics/wingx-queries.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -517,6 +518,47 @@ export function registerTools(server: McpServer): void {
     {},
     async () => {
       return textResult(getFeedHealth(getDb()));
+    },
+  );
+
+  // ── market_overview ────────────────────────────────────────────────
+  server.tool(
+    "market_overview",
+    "Get charter market overview for a month — top operators by legs flown, " +
+      "total activity, fleet size, aircraft class mix. WINGX-equivalent intelligence.",
+    {
+      month: z.string().optional().describe("Month as YYYY-MM (default: current month)"),
+    },
+    async ({ month }) => {
+      return textResult(getMarketOverview(getDb(), month));
+    },
+  );
+
+  // ── operator_analysis ──────────────────────────────────────────────
+  server.tool(
+    "operator_analysis",
+    "Deep dive on a charter operator — monthly utilization trend, market share, " +
+      "top routes, fleet composition, and busiest aircraft.",
+    {
+      operator_name: z.string().describe("Operator/certificate holder name, e.g. 'NetJets Aviation LLC'"),
+      months: z.number().optional().describe("How many months of history (default 6)"),
+    },
+    async ({ operator_name, months }) => {
+      return textResult(getOperatorProfile(getDb(), operator_name, months ?? 6));
+    },
+  );
+
+  // ── airport_report ─────────────────────────────────────────────────
+  server.tool(
+    "airport_report",
+    "Hourly activity report for an airport — departures, arrivals, peak hours, " +
+      "top operators. Like a WINGX airport dashboard.",
+    {
+      airport_icao: z.string().describe("Airport ICAO code, e.g. KTEB"),
+      date: z.string().optional().describe("Date as YYYY-MM-DD (default: today)"),
+    },
+    async ({ airport_icao, date }) => {
+      return textResult(getAirportReport(getDb(), airport_icao.toUpperCase(), date));
     },
   );
 }

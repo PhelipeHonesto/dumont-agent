@@ -14,6 +14,7 @@ import { dealsRouter } from "./routes/deals.js";
 import { chatRouter } from "./routes/chat.js";
 import { radarRouter } from "./routes/radar.js";
 import { intelligenceRouter } from "./routes/intelligence.js";
+import { analyticsRouter } from "./routes/analytics.js";
 import { closeDb } from "../memory/database.js";
 
 // ── Env Validation ──────────────────────────────────────────────────────
@@ -57,6 +58,7 @@ app.use(dealsRouter);
 app.use(chatRouter);
 app.use(radarRouter);
 app.use(intelligenceRouter);
+app.use(analyticsRouter);
 
 // ── Global Error Handler ────────────────────────────────────────────────
 
