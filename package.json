@@ -36,10 +36,13 @@
     "ingest:operators": "tsx src/ingestion/faa-operators-full.ts",
     "ingest:safety": "tsx src/ingestion/safety-ratings.ts",
     "mcp:serve": "tsx src/mcp/server.ts",
-    "mcp:sse": "tsx src/mcp/server-sse.ts"
+    "mcp:sse": "tsx src/mcp/server-sse.ts",
+    "archive:adsb": "tsx src/ingestion/archive-adsb-raw.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@aws-sdk/client-s3": "^3.1029.0",
+    "@aws-sdk/lib-storage": "^3.1029.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^12.8.0",
     "cors": "^2.8.6",

@@ -779,6 +779,21 @@ const MIGRATIONS: Migration[] = [
       ALTER TABLE knowledge_graph ADD COLUMN operator_safety_score INTEGER DEFAULT 0;
     `,
   },
+  {
+    id: 26,
+    name: "create_archive_progress",
+    sql: `
+      CREATE TABLE IF NOT EXISTS archive_progress (
+        date TEXT PRIMARY KEY,
+        status TEXT NOT NULL CHECK (status IN ('pending', 'processing', 'complete', 'failed', 'no_release')),
+        files_archived INTEGER NOT NULL DEFAULT 0,
+        total_bytes INTEGER NOT NULL DEFAULT 0,
+        s3_prefix TEXT,
+        archived_at TEXT,
+        schema_version INTEGER NOT NULL DEFAULT 1
+      );
+    `,
+  },
 ];
 
 /**
