@@ -22,7 +22,7 @@ dockerfilePath = "Dockerfile"
 #   VAPI_SECRET=...  (web only)
 
 [deploy]
-startCommand = "npm run server"
+startCommand = "npx tsx src/scripts/seed-db.ts && npx tsx src/server/index.ts"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
