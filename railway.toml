@@ -1,0 +1,29 @@
+# Railway deployment config for Dumont Agent
+# All services share a persistent volume mounted at /data for SQLite
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+# ── Web service: Express API (port 3001) ─────────────────────────────────
+# This is the default service Railway runs. Other services are configured
+# via the Railway dashboard as separate deployments from the same repo.
+#
+# Service config (set in Railway dashboard):
+#   web:    CMD = npm run server
+#   worker: CMD = npm run adsb:live
+#   cron:   npm run pipeline       → schedule: 0 3 * * *
+#   cron:   npm run health:check   → schedule: */15 * * * *
+#
+# All services need these env vars:
+#   DATABASE_PATH=/data/dumont.db
+#   ANTHROPIC_API_KEY=sk-ant-...
+#   NODE_ENV=production
+#   VAPI_SECRET=...  (web only)
+
+[deploy]
+startCommand = "npm run server"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5

@@ -20,7 +20,7 @@ let db: Database.Database | null = null;
 export function getDb(dbPath?: string): Database.Database {
   if (db && !dbPath) return db;
 
-  const resolvedPath = dbPath ?? process.env.DUMONT_DB_PATH ?? path.resolve("./data/dumont.db");
+  const resolvedPath = dbPath ?? process.env.DATABASE_PATH ?? process.env.DUMONT_DB_PATH ?? path.resolve("./data/dumont.db");
 
   // Auto-create data directory (skip for in-memory databases)
   if (resolvedPath !== ":memory:") {
@@ -29,6 +29,7 @@ export function getDb(dbPath?: string): Database.Database {
 
   const instance = new Database(resolvedPath);
   instance.pragma("journal_mode = WAL");
+  instance.pragma("busy_timeout = 30000");
   instance.pragma("foreign_keys = ON");
 
   runMigrations(instance);

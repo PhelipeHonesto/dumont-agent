@@ -4,9 +4,16 @@
   "description": "AI-powered charter brokerage engine for Orange Sunshine Aviation",
   "type": "module",
   "main": "dist/orchestrator/index.js",
+  "workspaces": [
+    "dashboard",
+    "website",
+    "whatsapp-bridge",
+    "ingestion/faa-registry"
+  ],
   "scripts": {
-    "build": "echo 'skip'",
+    "build": "npm run build --workspaces --if-present && echo 'root: skip'",
     "test": "vitest run",
+    "test:all": "npm test && npm test --workspaces --if-present",
     "test:watch": "vitest",
     "sim": "tsx src/run-sim.ts",
     "deal": "tsx src/run-deal.ts",
@@ -18,10 +25,24 @@
     "ingest:icao": "tsx src/ingestion/icao-hex-ingest.ts",
     "opensky": "tsx src/ingestion/opensky-worker.ts",
     "ingest:history": "tsx src/ingestion/adsblol-ingest.ts",
-    "ingest:parquet": "tsx src/ingestion/parquet-ingest.ts"
+    "ingest:parquet": "tsx src/ingestion/parquet-ingest.ts",
+    "adsb:live": "tsx src/ingestion/adsblol-live-worker.ts",
+    "faa:diff": "tsx src/ingestion/faa-daily-diff.ts",
+    "ingest:docindex": "tsx src/ingestion/faa-docindex-ingest.ts",
+    "pipeline": "tsx src/ingestion/pipeline.ts",
+    "ingest:airmen": "tsx src/ingestion/airmen-ingest.ts",
+    "eval:quote": "tsx src/eval/quote-eval.ts",
+    "health:check": "tsx src/monitoring/health-check.ts",
+    "ingest:listings": "tsx src/ingestion/listing-tracker.ts",
+    "export:targets": "tsx src/ingestion/target-companies.ts",
+    "backfill:history": "tsx src/ingestion/history-backfill.ts",
+    "ingest:operators": "tsx src/ingestion/faa-operators-full.ts",
+    "ingest:safety": "tsx src/ingestion/safety-ratings.ts",
+    "mcp:serve": "tsx src/mcp/server.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^12.8.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
