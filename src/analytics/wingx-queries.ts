@@ -5,7 +5,8 @@
  * for API endpoints and MCP tools.
  */
 
-import type Database from "better-sqlite3";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = any; // Accepts both better-sqlite3.Database and PgSyncBridge
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -75,10 +76,10 @@ export interface RouteTrend {
 
 // ── Queries ─────────────────────────────────────────────────────────────────
 
-export function getMarketOverview(db: Database.Database, month?: string): MarketOverview {
+export async function getMarketOverview(db: Db, month?: string): Promise<MarketOverview> {
   const targetMonth = month ?? currentMonth();
 
-  const operators = db.prepare(`
+  const operators = await db.prepare(`
     SELECT operator_name, total_legs, total_flight_hours, market_share_pct, top_route
     FROM operator_market_share
     WHERE month = ?
@@ -92,18 +93,18 @@ export function getMarketOverview(db: Database.Database, month?: string): Market
     top_route: string | null;
   }>;
 
-  const totals = db.prepare(`
+  const totals = await db.prepare(`
     SELECT SUM(total_legs) as legs, SUM(total_flight_hours) as hours,
            COUNT(*) as operators
     FROM operator_market_share WHERE month = ?
   `).get(targetMonth) as { legs: number | null; hours: number | null; operators: number };
 
-  const aircraftCount = db.prepare(`
+  const aircraftCount = await db.prepare(`
     SELECT COUNT(*) as cnt FROM aircraft_utilization WHERE month = ?
   `).get(targetMonth) as { cnt: number };
 
   // Class mix from utilization
-  const classMixRows = db.prepare(`
+  const classMixRows = await db.prepare(`
     SELECT aircraft_class, SUM(total_legs) as legs
     FROM aircraft_utilization
     WHERE month = ? AND aircraft_class IS NOT NULL
@@ -129,12 +130,12 @@ export function getMarketOverview(db: Database.Database, month?: string): Market
   };
 }
 
-export function getOperatorProfile(
-  db: Database.Database,
+export async function getOperatorProfile(
+  db: Db,
   operatorName: string,
   monthsBack = 6,
-): OperatorProfile {
-  const months = db.prepare(`
+): Promise<OperatorProfile> {
+  const months = await db.prepare(`
     SELECT month, total_legs, total_flight_hours, market_share_pct,
            avg_flight_time_min, top_route, aircraft_classes
     FROM operator_market_share
@@ -151,14 +152,14 @@ export function getOperatorProfile(
     aircraft_classes: string | null;
   }>;
 
-  const totalRow = db.prepare(`
+  const totalRow = await db.prepare(`
     SELECT SUM(total_legs) as legs, SUM(total_flight_hours) as hours
     FROM operator_market_share WHERE operator_name = ?
   `).get(operatorName) as { legs: number | null; hours: number | null };
 
   // Top aircraft by utilization (most recent month with data)
   const latestMonth = months[0]?.month ?? currentMonth();
-  const topAircraft = db.prepare(`
+  const topAircraft = await db.prepare(`
     SELECT tail_number, total_legs, total_flight_hours
     FROM aircraft_utilization
     WHERE operator_name = ? AND month = ?
@@ -167,7 +168,7 @@ export function getOperatorProfile(
     tail_number: string; total_legs: number; total_flight_hours: number;
   }>;
 
-  const aircraftCount = db.prepare(`
+  const aircraftCount = await db.prepare(`
     SELECT COUNT(DISTINCT tail_number) as cnt FROM aircraft_utilization
     WHERE operator_name = ?
   `).get(operatorName) as { cnt: number };
@@ -194,14 +195,14 @@ export function getOperatorProfile(
   };
 }
 
-export function getAirportReport(
-  db: Database.Database,
+export async function getAirportReport(
+  db: Db,
   icao: string,
   date?: string,
-): AirportReport {
+): Promise<AirportReport> {
   const targetDate = date ?? today();
 
-  const hourly = db.prepare(`
+  const hourly = await db.prepare(`
     SELECT hour, departures, arrivals, total_movements, charter_movements
     FROM airport_activity
     WHERE airport_icao = ? AND date = ?
@@ -222,7 +223,7 @@ export function getAirportReport(
   }
 
   // Top operators at this airport (from legs data)
-  const topOps = db.prepare(`
+  const topOps = await db.prepare(`
     SELECT operator_name, COUNT(*) as legs
     FROM adsb_completed_legs
     WHERE (origin_icao = ? OR destination_icao = ?)
@@ -252,13 +253,13 @@ export function getAirportReport(
   };
 }
 
-export function getRouteTrend(
-  db: Database.Database,
+export async function getRouteTrend(
+  db: Db,
   origin: string,
   destination: string,
   monthsBack = 12,
-): RouteTrend {
-  const monthly = db.prepare(`
+): Promise<RouteTrend> {
+  const monthly = await db.prepare(`
     SELECT month, total_flights, avg_flight_time_min, dominant_class,
            class_breakdown, yoy_change_pct
     FROM route_trends
@@ -296,26 +297,26 @@ export function getRouteTrend(
   };
 }
 
-export function getFleetHealth(
-  db: Database.Database,
+export async function getFleetHealth(
+  db: Db,
   aircraftClass?: string,
-): Array<Record<string, unknown>> {
+): Promise<Array<Record<string, unknown>>> {
   const query = aircraftClass
     ? `SELECT * FROM fleet_snapshot WHERE aircraft_class = ? ORDER BY date DESC LIMIT 12`
     : `SELECT * FROM fleet_snapshot ORDER BY date DESC, aircraft_class LIMIT 60`;
 
   return aircraftClass
-    ? db.prepare(query).all(aircraftClass) as Array<Record<string, unknown>>
-    : db.prepare(query).all() as Array<Record<string, unknown>>;
+    ? await db.prepare(query).all(aircraftClass) as Array<Record<string, unknown>>
+    : await db.prepare(query).all() as Array<Record<string, unknown>>;
 }
 
-export function getTopRoutes(
-  db: Database.Database,
+export async function getTopRoutes(
+  db: Db,
   month?: string,
   limit = 20,
-): Array<Record<string, unknown>> {
+): Promise<Array<Record<string, unknown>>> {
   const targetMonth = month ?? currentMonth();
-  return db.prepare(`
+  return await db.prepare(`
     SELECT origin_icao, destination_icao, total_flights, avg_flight_time_min,
            dominant_class, class_breakdown, yoy_change_pct
     FROM route_trends
@@ -325,13 +326,13 @@ export function getTopRoutes(
   `).all(targetMonth, limit) as Array<Record<string, unknown>>;
 }
 
-export function getTopOperators(
-  db: Database.Database,
+export async function getTopOperators(
+  db: Db,
   month?: string,
   limit = 20,
-): Array<Record<string, unknown>> {
+): Promise<Array<Record<string, unknown>>> {
   const targetMonth = month ?? currentMonth();
-  return db.prepare(`
+  return await db.prepare(`
     SELECT operator_name, total_legs, total_flight_hours, market_share_pct,
            avg_flight_time_min, top_route, aircraft_classes
     FROM operator_market_share
@@ -341,14 +342,14 @@ export function getTopOperators(
   `).all(targetMonth, limit) as Array<Record<string, unknown>>;
 }
 
-export function getFuelEstimate(
-  db: Database.Database,
+export async function getFuelEstimate(
+  db: Db,
   origin: string,
   destination: string,
   aircraftClass: string,
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   // Get average flight time for this route+class
-  const routeStats = db.prepare(`
+  const routeStats = await db.prepare(`
     SELECT ROUND(AVG(flight_time_min), 1) as avg_time_min,
            ROUND(AVG(distance_nm), 1) as avg_distance_nm
     FROM adsb_completed_legs
@@ -357,7 +358,7 @@ export function getFuelEstimate(
 
   // Fallback: get any route stats for these airports
   const fallbackStats = (!routeStats.avg_time_min)
-    ? db.prepare(`
+    ? await db.prepare(`
         SELECT ROUND(AVG(flight_time_min), 1) as avg_time_min,
                ROUND(AVG(distance_nm), 1) as avg_distance_nm
         FROM adsb_completed_legs
@@ -368,7 +369,7 @@ export function getFuelEstimate(
   const timeMin = routeStats.avg_time_min ?? fallbackStats?.avg_time_min ?? null;
   const distNm = routeStats.avg_distance_nm ?? fallbackStats?.avg_distance_nm ?? null;
 
-  const fuel = db.prepare(`
+  const fuel = await db.prepare(`
     SELECT avg_gph, avg_fuel_price_per_gallon FROM fuel_burn_estimates
     WHERE aircraft_class = ?
   `).get(aircraftClass) as { avg_gph: number; avg_fuel_price_per_gallon: number } | undefined;

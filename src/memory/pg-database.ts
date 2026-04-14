@@ -51,3 +51,138 @@ export async function closePg(): Promise<void> {
     pool = null;
   }
 }
+
+// ── SQL dialect converter ───────────────────────────────────────────────────
+
+/** Rewrite ROUND(expr, N) → ROUND((expr)::numeric, N) for PostgreSQL. */
+function fixRound(sql: string): string {
+  const re = /\bROUND\s*\(/gi;
+  let result = "";
+  let lastIdx = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(sql)) !== null) {
+    result += sql.slice(lastIdx, match.index);
+    // Find the matching close paren
+    let depth = 1;
+    let i = re.lastIndex;
+    while (i < sql.length && depth > 0) {
+      if (sql[i] === "(") depth++;
+      else if (sql[i] === ")") depth--;
+      i++;
+    }
+    // Inner content between ROUND( and the final )
+    const inner = sql.slice(re.lastIndex, i - 1);
+    // Split on the LAST comma to get expr and precision
+    const lastComma = inner.lastIndexOf(",");
+    if (lastComma >= 0) {
+      const expr = inner.slice(0, lastComma).trim();
+      const prec = inner.slice(lastComma + 1).trim();
+      result += `ROUND((${expr})::numeric, ${prec})`;
+    } else {
+      result += `ROUND(${inner})`; // no precision arg
+    }
+    lastIdx = i;
+  }
+  result += sql.slice(lastIdx);
+  return result;
+}
+
+/** Convert SQLite SQL to PostgreSQL — params, functions, syntax. */
+export function convertSql(sql: string): string {
+  let r = sql;
+
+  // ? → $1, $2, ...
+  let idx = 0;
+  let inStr = false;
+  let out = "";
+  for (let i = 0; i < r.length; i++) {
+    const ch = r[i]!;
+    if (ch === "'" && r[i - 1] !== "\\") { inStr = !inStr; out += ch; }
+    else if (ch === "?" && !inStr) { idx++; out += `$${idx}`; }
+    else { out += ch; }
+  }
+  r = out;
+
+  // CAST(strftime('%w', col) AS INTEGER) → EXTRACT(DOW FROM col::timestamp)::INTEGER
+  r = r.replace(
+    /CAST\s*\(\s*strftime\s*\(\s*'%w'\s*,\s*([^)]+)\)\s+AS\s+INTEGER\s*\)/gi,
+    "EXTRACT(DOW FROM $1::timestamp)::INTEGER",
+  );
+  // CAST(strftime('%H', col) AS INTEGER) → EXTRACT(HOUR FROM col::timestamp)::INTEGER
+  r = r.replace(
+    /CAST\s*\(\s*strftime\s*\(\s*'%H'\s*,\s*([^)]+)\)\s+AS\s+INTEGER\s*\)/gi,
+    "EXTRACT(HOUR FROM $1::timestamp)::INTEGER",
+  );
+  // strftime('%Y-%m', col) → to_char(col::timestamp, 'YYYY-MM')
+  r = r.replace(
+    /strftime\s*\(\s*'%Y-%m'\s*,\s*([^)]+)\)/gi,
+    "to_char($1::timestamp, 'YYYY-MM')",
+  );
+  // DATE(col) → (col)::date
+  r = r.replace(/\bDATE\s*\(\s*([^)]+)\)/gi, "($1)::date");
+  // datetime('now', 'interval') → (NOW() + INTERVAL 'interval')::text
+  r = r.replace(
+    /datetime\s*\(\s*'now'\s*,\s*'([^']+)'\s*\)/gi,
+    "(NOW() + INTERVAL '$1')::text",
+  );
+  // datetime('now') → NOW()::text (for TEXT column comparisons)
+  r = r.replace(/datetime\s*\(\s*'now'\s*\)/gi, "NOW()::text");
+  // INSERT OR REPLACE / INSERT OR IGNORE
+  r = r.replace(/INSERT\s+OR\s+REPLACE/gi, "INSERT");
+  r = r.replace(/INSERT\s+OR\s+IGNORE/gi, "INSERT");
+  // COLLATE NOCASE
+  r = r.replace(/\s+COLLATE\s+NOCASE/gi, "");
+  // ROUND(expr, N) — PG requires numeric, not real/double precision
+  // Find each ROUND( and extract balanced parens to rewrite
+  r = fixRound(r);
+
+  return r;
+}
+
+// ── PgSyncBridge ────────────────────────────────────────────────────────────
+// Mimics better-sqlite3's prepare().all/get/run pattern but async.
+// Callers just add `await` — works with both SQLite (sync, await passes through)
+// and PG (async, await resolves the Promise).
+
+let bridge: PgSyncBridge | null = null;
+
+export class PgSyncBridge {
+  private p: pg.Pool;
+
+  constructor(pool: pg.Pool) { this.p = pool; }
+
+  prepare(sql: string) {
+    const pgSql = convertSql(sql);
+    const p = this.p;
+    return {
+      all: async (...params: unknown[]) => {
+        const result = await p.query(pgSql, params.length > 0 ? params : undefined);
+        return result.rows;
+      },
+      get: async (...params: unknown[]) => {
+        const result = await p.query(pgSql, params.length > 0 ? params : undefined);
+        return result.rows[0] as Record<string, unknown> | undefined;
+      },
+      run: async (...params: unknown[]) => {
+        const result = await p.query(pgSql, params.length > 0 ? params : undefined);
+        return { changes: result.rowCount ?? 0 };
+      },
+    };
+  }
+
+  async exec(sql: string): Promise<void> {
+    const pgSql = convertSql(sql);
+    await this.p.query(pgSql);
+  }
+
+  async close(): Promise<void> {
+    await this.p.end();
+  }
+}
+
+/** Get the PgSyncBridge singleton. */
+export function getPgBridge(): PgSyncBridge {
+  if (bridge) return bridge;
+  bridge = new PgSyncBridge(getPool());
+  return bridge;
+}

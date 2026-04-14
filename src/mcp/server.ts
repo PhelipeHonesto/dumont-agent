@@ -6,8 +6,14 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { closeDb } from "../memory/database.js";
+import { closeDb, setPgBridge } from "../memory/database.js";
 import { registerTools } from "./tools.js";
+
+// Initialize PG bridge if postgres mode
+if (process.env.DATABASE_TYPE === "postgres") {
+  const { getPgBridge } = await import("../memory/pg-database.js");
+  setPgBridge(getPgBridge());
+}
 
 const server = new McpServer(
   { name: "dumont-intelligence", version: "1.0.0" },

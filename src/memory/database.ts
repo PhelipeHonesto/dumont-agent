@@ -60,3 +60,35 @@ export function closeDb(): void {
 export function createTestDb(): Database.Database {
   return getDb(":memory:");
 }
+
+/**
+ * Get the database for the configured backend.
+ * DATABASE_TYPE=postgres → PgSyncBridge (async .prepare().all/get/run)
+ * DATABASE_TYPE=sqlite (default) → better-sqlite3 (sync)
+ *
+ * Callers should `await` all .prepare().all/get/run calls.
+ * `await syncValue` passes through immediately, so this works for both.
+ */
+
+// Cached PgSyncBridge instance (lazy-loaded)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let pgBridge: any = null;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getDatabase(): any {
+  if (process.env.DATABASE_TYPE === "postgres") {
+    if (pgBridge) return pgBridge;
+    // Dynamic import at module level is not possible synchronously in ESM.
+    // Use the pg-database module directly since it's already imported by callers.
+    throw new Error("Call initPgBridge() before getDatabase() in postgres mode");
+  }
+  return getDb();
+}
+
+/**
+ * Initialize the PG bridge. Call once at server startup when DATABASE_TYPE=postgres.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setPgBridge(bridge: any): void {
+  pgBridge = bridge;
+}

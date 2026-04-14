@@ -13,7 +13,7 @@
 
 import { Router, type Request, type Response } from "express";
 import { asyncHandler } from "../middleware.js";
-import { getDb } from "../../memory/database.js";
+import { getDb, getDatabase } from "../../memory/database.js";
 import { KnowledgeGraphStore } from "../../memory/knowledge-graph.js";
 import { getDataHealth, getFeedHealth } from "../../monitoring/health-queries.js";
 import { getLatestQualityReport } from "../../analytics/data-quality.js";
@@ -48,10 +48,10 @@ intelligenceRouter.get(
     let tail: string;
     try { tail = validateTailNumber(req.params.tailNumber); }
     catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
-    const db = getDb();
+    const db = getDatabase();
 
     // Core registration
-    const aircraft = db.prepare(
+    const aircraft = await db.prepare(
       `SELECT * FROM faa_aircraft WHERE tail_number = ?`,
     ).get(tail) as Record<string, unknown> | undefined;
 
@@ -62,7 +62,7 @@ intelligenceRouter.get(
 
     // ADS-B state
     const adsbState = aircraft.icao_hex
-      ? db.prepare(
+      ? await db.prepare(
           `SELECT state, nearest_airport, idle_hours, last_seen,
                   last_leg_origin, last_leg_destination, latitude, longitude
            FROM adsb_aircraft_state WHERE icao_hex = ?`,
@@ -70,7 +70,7 @@ intelligenceRouter.get(
       : null;
 
     // Flight stats from completed legs
-    const flightStats = db.prepare(
+    const flightStats = await db.prepare(
       `SELECT COUNT(*) as total_legs,
               MIN(departure_time) as earliest_flight,
               MAX(departure_time) as latest_flight,
@@ -80,14 +80,14 @@ intelligenceRouter.get(
     ).get(tail) as Record<string, unknown>;
 
     // Lien history from docindex
-    const liens = db.prepare(
+    const liens = await db.prepare(
       `SELECT doc_type, party_name, receipt_date, doc_id
        FROM faa_docindex WHERE tail_number = ?
        ORDER BY receipt_date DESC LIMIT 20`,
     ).all(tail) as Array<Record<string, unknown>>;
 
     // Linked pilots
-    const pilots = db.prepare(
+    const pilots = await db.prepare(
       `SELECT p.certificate_number, p.first_middle_name, p.last_name,
               p.city, p.state, p.medical_class,
               l.match_type, l.aircraft_base_icao
@@ -182,10 +182,10 @@ intelligenceRouter.get(
     catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
     const limit = validatePositiveInt(req.query.limit, 50, 200);
     const offset = clampOffset(req.query.offset);
-    const db = getDb();
+    const db = getDatabase();
 
     // Look up icao_hex for this tail
-    const aircraft = db.prepare(
+    const aircraft = await db.prepare(
       `SELECT icao_hex FROM faa_aircraft WHERE tail_number = ?`,
     ).get(tail) as { icao_hex: string | null } | undefined;
 
@@ -195,7 +195,7 @@ intelligenceRouter.get(
     }
 
     // Query by tail_number directly (completed_legs has both)
-    const legs = db.prepare(
+    const legs = await db.prepare(
       `SELECT origin_icao, destination_icao, departure_time, arrival_time,
               flight_time_min, distance_nm, aircraft_type, aircraft_class
        FROM adsb_completed_legs
@@ -204,7 +204,7 @@ intelligenceRouter.get(
        LIMIT ? OFFSET ?`,
     ).all(tail, aircraft.icao_hex ?? "", limit, offset) as Array<Record<string, unknown>>;
 
-    const total = db.prepare(
+    const total = await db.prepare(
       `SELECT COUNT(*) as cnt FROM adsb_completed_legs
        WHERE tail_number = ? OR icao_hex = ?`,
     ).get(tail, aircraft.icao_hex ?? "") as { cnt: number };
@@ -344,10 +344,10 @@ intelligenceRouter.get(
       origin = validateIcaoCode(req.params.origin);
       destination = validateIcaoCode(req.params.destination);
     } catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
-    const db = getDb();
+    const db = getDatabase();
 
     // Frequency and timing
-    const stats = db.prepare(
+    const stats = await db.prepare(
       `SELECT COUNT(*) as total_flights,
               ROUND(AVG(flight_time_min), 1) as avg_flight_time_min,
               ROUND(MIN(flight_time_min), 1) as min_flight_time_min,
@@ -358,7 +358,7 @@ intelligenceRouter.get(
     ).get(origin, destination) as Record<string, unknown>;
 
     // Most common aircraft classes
-    const byClass = db.prepare(
+    const byClass = await db.prepare(
       `SELECT aircraft_class, COUNT(*) as count
        FROM adsb_completed_legs
        WHERE origin_icao = ? AND destination_icao = ?
@@ -368,7 +368,7 @@ intelligenceRouter.get(
     ).all(origin, destination) as Array<{ aircraft_class: string; count: number }>;
 
     // Busiest days of week (0=Sunday)
-    const byDay = db.prepare(
+    const byDay = await db.prepare(
       `SELECT CAST(strftime('%w', departure_time) AS INTEGER) as day_of_week,
               COUNT(*) as count
        FROM adsb_completed_legs
@@ -378,7 +378,7 @@ intelligenceRouter.get(
     ).all(origin, destination) as Array<{ day_of_week: number; count: number }>;
 
     // Monthly trend (last 12 months)
-    const monthlyTrend = db.prepare(
+    const monthlyTrend = await db.prepare(
       `SELECT strftime('%Y-%m', departure_time) as month, COUNT(*) as count
        FROM adsb_completed_legs
        WHERE origin_icao = ? AND destination_icao = ?
@@ -421,9 +421,9 @@ intelligenceRouter.get(
     let status: string;
     try { status = sanitizeString(req.query.status ?? "active", 20); }
     catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
-    const db = getDb();
+    const db = getDatabase();
 
-    const listings = db.prepare(
+    const listings = await db.prepare(
       `SELECT tail_number, source, listing_url, asking_price_cents, currency,
               aircraft_type, year, description, first_seen_at, last_seen_at,
               status, days_on_market
@@ -433,7 +433,7 @@ intelligenceRouter.get(
        LIMIT ? OFFSET ?`,
     ).all(status, limit, offset) as Array<Record<string, unknown>>;
 
-    const total = db.prepare(
+    const total = await db.prepare(
       `SELECT COUNT(*) as cnt FROM aircraft_listings WHERE status = ?`,
     ).get(status) as { cnt: number };
 
@@ -465,9 +465,9 @@ intelligenceRouter.get(
   asyncHandler(async (req: Request, res: Response) => {
     const limit = validatePositiveInt(req.query.limit, 50, 200);
     const offset = clampOffset(req.query.offset);
-    const db = getDb();
+    const db = getDatabase();
 
-    const changes = db.prepare(
+    const changes = await db.prepare(
       `SELECT r.tail_number, r.change_type, r.field_name,
               r.old_value, r.new_value, r.detected_at,
               a.aircraft_class, a.common_name, a.manufacturer, a.model
@@ -477,7 +477,7 @@ intelligenceRouter.get(
        LIMIT ? OFFSET ?`,
     ).all(limit, offset) as Array<Record<string, unknown>>;
 
-    const total = db.prepare(
+    const total = await db.prepare(
       `SELECT COUNT(*) as cnt FROM faa_registry_changes`,
     ).get() as { cnt: number };
 

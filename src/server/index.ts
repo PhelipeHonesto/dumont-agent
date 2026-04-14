@@ -15,7 +15,7 @@ import { radarRouter } from "./routes/radar.js";
 import { intelligenceRouter } from "./routes/intelligence.js";
 import { analyticsRouter } from "./routes/analytics.js";
 import { dashboardRouter } from "./routes/dashboard.js";
-import { closeDb } from "../memory/database.js";
+import { closeDb, setPgBridge } from "../memory/database.js";
 import { globalLimiter, heavyLimiter } from "./middleware/rate-limit.js";
 import { errorTracker, errorRouter } from "./middleware/error-tracker.js";
 
@@ -31,6 +31,15 @@ if (!process.env.VAPI_SECRET) {
   console.warn("[security] VAPI_SECRET not set — /chat/completions is unauthenticated" + (IS_PROD ? " (PRODUCTION)" : " (dev)"));
 }
 
+// ── Database Backend ───────────────────────────────────────────────────
+
+if (process.env.DATABASE_TYPE === "postgres") {
+  const { getPgBridge } = await import("../memory/pg-database.js");
+  setPgBridge(getPgBridge());
+  console.log("[dumont] Database: PostgreSQL (Supabase)");
+} else {
+  console.log("[dumont] Database: SQLite");
+}
 
 // ── CORS ────────────────────────────────────────────────────────────────
 

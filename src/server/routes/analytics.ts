@@ -14,7 +14,7 @@
 
 import { Router, type Request, type Response } from "express";
 import { asyncHandler } from "../middleware.js";
-import { getDb } from "../../memory/database.js";
+import { getDatabase } from "../../memory/database.js";
 import {
   getMarketOverview,
   getOperatorProfile,
@@ -48,7 +48,7 @@ analyticsRouter.get(
     let month: string | undefined;
     try { month = validateMonth(req.query.month); }
     catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
-    res.json(getMarketOverview(getDb(), month));
+    res.json(await getMarketOverview(getDatabase(), month));
   }),
 );
 
@@ -61,7 +61,7 @@ analyticsRouter.get(
     try { name = sanitizeString(decodeURIComponent(String(req.params.name))); }
     catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
     const months = validatePositiveInt(req.query.months, 6, 24);
-    res.json(getOperatorProfile(getDb(), name, months));
+    res.json(await getOperatorProfile(getDatabase(), name, months));
   }),
 );
 
@@ -76,7 +76,7 @@ analyticsRouter.get(
       icao = validateIcaoCode(req.params.icao);
       date = validateDate(req.query.date);
     } catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
-    res.json(getAirportReport(getDb(), icao, date));
+    res.json(await getAirportReport(getDatabase(), icao, date));
   }),
 );
 
@@ -91,7 +91,7 @@ analyticsRouter.get(
       destination = validateIcaoCode(req.params.destination);
     } catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
     const months = validatePositiveInt(req.query.months, 12, 60);
-    res.json(getRouteTrend(getDb(), origin, destination, months));
+    res.json(await getRouteTrend(getDatabase(), origin, destination, months));
   }),
 );
 
@@ -103,7 +103,7 @@ analyticsRouter.get(
     let cls: string | undefined;
     try { cls = validateAircraftClass(req.query.class); }
     catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
-    res.json(getFleetHealth(getDb(), cls));
+    res.json(await getFleetHealth(getDatabase(), cls));
   }),
 );
 
@@ -116,7 +116,7 @@ analyticsRouter.get(
     try { month = validateMonth(req.query.month); }
     catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
     const limit = validatePositiveInt(req.query.limit, 20, 100);
-    res.json(getTopRoutes(getDb(), month, limit));
+    res.json(await getTopRoutes(getDatabase(), month, limit));
   }),
 );
 
@@ -129,7 +129,7 @@ analyticsRouter.get(
     try { month = validateMonth(req.query.month); }
     catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
     const limit = validatePositiveInt(req.query.limit, 20, 100);
-    res.json(getTopOperators(getDb(), month, limit));
+    res.json(await getTopOperators(getDatabase(), month, limit));
   }),
 );
 
@@ -148,6 +148,6 @@ analyticsRouter.get(
       res.status(400).json({ error: "Aircraft class is required" });
       return;
     }
-    res.json(getFuelEstimate(getDb(), origin, destination, cls));
+    res.json(await getFuelEstimate(getDatabase(), origin, destination, cls));
   }),
 );

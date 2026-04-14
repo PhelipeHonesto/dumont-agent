@@ -6,7 +6,7 @@
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getDb } from "../memory/database.js";
+import { getDb, getDatabase } from "../memory/database.js";
 import { KnowledgeGraphStore } from "../memory/knowledge-graph.js";
 import { getDataHealth, getFeedHealth } from "../monitoring/health-queries.js";
 import { getMarketOverview, getOperatorProfile, getAirportReport } from "../analytics/wingx-queries.js";
@@ -34,9 +34,9 @@ export function registerTools(server: McpServer): void {
     { tail_number: z.string().describe("US tail number, e.g. N123AB") },
     async ({ tail_number }) => {
       const tail = tail_number.toUpperCase();
-      const db = getDb();
+      const db = getDatabase();
 
-      const aircraft = db
+      const aircraft = await db
         .prepare(`SELECT * FROM faa_aircraft WHERE tail_number = ?`)
         .get(tail) as Record<string, unknown> | undefined;
 
@@ -45,7 +45,7 @@ export function registerTools(server: McpServer): void {
       }
 
       const adsbState = aircraft.icao_hex
-        ? (db
+        ? (await db
             .prepare(
               `SELECT state, nearest_airport, idle_hours, last_seen,
                       last_leg_origin, last_leg_destination, latitude, longitude
@@ -54,7 +54,7 @@ export function registerTools(server: McpServer): void {
             .get(aircraft.icao_hex as string) as Record<string, unknown> | undefined)
         : null;
 
-      const flightStats = db
+      const flightStats = await db
         .prepare(
           `SELECT COUNT(*) as total_legs,
                   MIN(departure_time) as earliest_flight,
@@ -65,7 +65,7 @@ export function registerTools(server: McpServer): void {
         )
         .get(tail) as Record<string, unknown>;
 
-      const liens = db
+      const liens = await db
         .prepare(
           `SELECT doc_type, party_name, receipt_date, doc_id
            FROM faa_docindex WHERE tail_number = ?
@@ -73,7 +73,7 @@ export function registerTools(server: McpServer): void {
         )
         .all(tail) as Array<Record<string, unknown>>;
 
-      const pilots = db
+      const pilots = await db
         .prepare(
           `SELECT p.certificate_number, p.first_middle_name, p.last_name,
                   p.city, p.state, p.medical_class,
@@ -168,9 +168,9 @@ export function registerTools(server: McpServer): void {
     async ({ tail_number, limit: rawLimit }) => {
       const tail = tail_number.toUpperCase();
       const limit = clampLimit(rawLimit);
-      const db = getDb();
+      const db = getDatabase();
 
-      const aircraft = db
+      const aircraft = await db
         .prepare(`SELECT icao_hex FROM faa_aircraft WHERE tail_number = ?`)
         .get(tail) as { icao_hex: string | null } | undefined;
 
@@ -178,7 +178,7 @@ export function registerTools(server: McpServer): void {
         return textResult({ error: "Aircraft not found", tailNumber: tail });
       }
 
-      const legs = db
+      const legs = await db
         .prepare(
           `SELECT origin_icao, destination_icao, departure_time, arrival_time,
                   flight_time_min, distance_nm, aircraft_type, aircraft_class
@@ -189,7 +189,7 @@ export function registerTools(server: McpServer): void {
         )
         .all(tail, aircraft.icao_hex ?? "", limit) as Array<Record<string, unknown>>;
 
-      const total = db
+      const total = await db
         .prepare(
           `SELECT COUNT(*) as cnt FROM adsb_completed_legs
            WHERE tail_number = ? OR icao_hex = ?`,
@@ -320,9 +320,9 @@ export function registerTools(server: McpServer): void {
     async ({ origin: rawOrigin, destination: rawDest }) => {
       const origin = rawOrigin.toUpperCase();
       const destination = rawDest.toUpperCase();
-      const db = getDb();
+      const db = getDatabase();
 
-      const stats = db
+      const stats = await db
         .prepare(
           `SELECT COUNT(*) as total_flights,
                   ROUND(AVG(flight_time_min), 1) as avg_flight_time_min,
@@ -334,7 +334,7 @@ export function registerTools(server: McpServer): void {
         )
         .get(origin, destination) as Record<string, unknown>;
 
-      const byClass = db
+      const byClass = await db
         .prepare(
           `SELECT aircraft_class, COUNT(*) as count
            FROM adsb_completed_legs
@@ -345,7 +345,7 @@ export function registerTools(server: McpServer): void {
         )
         .all(origin, destination) as Array<{ aircraft_class: string; count: number }>;
 
-      const byDay = db
+      const byDay = await db
         .prepare(
           `SELECT CAST(strftime('%w', departure_time) AS INTEGER) as day_of_week,
                   COUNT(*) as count
@@ -356,7 +356,7 @@ export function registerTools(server: McpServer): void {
         )
         .all(origin, destination) as Array<{ day_of_week: number; count: number }>;
 
-      const monthlyTrend = db
+      const monthlyTrend = await db
         .prepare(
           `SELECT strftime('%Y-%m', departure_time) as month, COUNT(*) as count
            FROM adsb_completed_legs
@@ -403,7 +403,7 @@ export function registerTools(server: McpServer): void {
     },
     async ({ aircraft_type, limit: rawLimit }) => {
       const limit = clampLimit(rawLimit);
-      const db = getDb();
+      const db = getDatabase();
 
       let query: string;
       let params: unknown[];
@@ -426,9 +426,9 @@ export function registerTools(server: McpServer): void {
         params = [limit];
       }
 
-      const listings = db.prepare(query).all(...params) as Array<Record<string, unknown>>;
+      const listings = await db.prepare(query).all(...params) as Array<Record<string, unknown>>;
 
-      const total = db
+      const total = await db
         .prepare(`SELECT COUNT(*) as cnt FROM aircraft_listings WHERE status = 'active'`)
         .get() as { cnt: number };
 
@@ -462,9 +462,9 @@ export function registerTools(server: McpServer): void {
     },
     async ({ limit: rawLimit }) => {
       const limit = clampLimit(rawLimit);
-      const db = getDb();
+      const db = getDatabase();
 
-      const changes = db
+      const changes = await db
         .prepare(
           `SELECT r.tail_number, r.change_type, r.field_name,
                   r.old_value, r.new_value, r.detected_at,
@@ -476,7 +476,7 @@ export function registerTools(server: McpServer): void {
         )
         .all(limit) as Array<Record<string, unknown>>;
 
-      const total = db
+      const total = await db
         .prepare(`SELECT COUNT(*) as cnt FROM faa_registry_changes`)
         .get() as { cnt: number };
 
@@ -530,7 +530,7 @@ export function registerTools(server: McpServer): void {
       month: z.string().optional().describe("Month as YYYY-MM (default: current month)"),
     },
     async ({ month }) => {
-      return textResult(getMarketOverview(getDb(), month));
+      return textResult(await getMarketOverview(getDatabase(), month));
     },
   );
 
@@ -544,7 +544,7 @@ export function registerTools(server: McpServer): void {
       months: z.number().optional().describe("How many months of history (default 6)"),
     },
     async ({ operator_name, months }) => {
-      return textResult(getOperatorProfile(getDb(), operator_name, months ?? 6));
+      return textResult(await getOperatorProfile(getDatabase(), operator_name, months ?? 6));
     },
   );
 
@@ -558,7 +558,7 @@ export function registerTools(server: McpServer): void {
       date: z.string().optional().describe("Date as YYYY-MM-DD (default: today)"),
     },
     async ({ airport_icao, date }) => {
-      return textResult(getAirportReport(getDb(), airport_icao.toUpperCase(), date));
+      return textResult(await getAirportReport(getDatabase(), airport_icao.toUpperCase(), date));
     },
   );
 }
