@@ -1,10 +1,10 @@
 # Dumont Agent — OSA Aviation Intelligence + Charter Brokerage Engine
 
-AI-powered charter brokerage engine and aviation intelligence platform for Orange Sunshine Aviation (OSA). Single orchestrator with callable capabilities. Ingests FAA registry, ADS-B flight data, NTSB accidents, lien records, pilot records, and market listings into SQLite. Exposes intelligence via REST API, MCP server (12 tools), and React dashboard. Brokers charter deals through an automated pipeline.
+AI-powered charter brokerage engine and aviation intelligence platform for Orange Sunshine Aviation (OSA). Single orchestrator with callable capabilities. Ingests FAA registry, ADS-B flight data, NTSB accidents, lien records, pilot records, and market listings into PostgreSQL (Supabase). Exposes intelligence via REST API, MCP server (12 tools), and React dashboard. Brokers charter deals through an automated pipeline.
 
 ## Architecture
 
-- **Database**: SQLite at `data/dumont.db`, 30 migrations, WAL mode, `busy_timeout = 30000`
+- **Database**: PostgreSQL on Supabase (dumont-agent project, us-east-1). SQLite at `data/dumont.db` for local dev only.
 - **Express server**: port 3001, `src/server/index.ts` — REST API + Vapi voice webhook
 - **MCP server**: stdio transport, `src/mcp/server.ts` — 12 tools for Claude Desktop
 - **Dashboard**: Vite + React at `dashboard/`, port 5174, PWA-enabled
@@ -18,8 +18,8 @@ AI-powered charter brokerage engine and aviation intelligence platform for Orang
 | Layer | Storage | Contents |
 |-------|---------|----------|
 | **Raw (immutable)** | S3 Glacier (`osa-dumont-backup`) | adsb.lol daily tars (2023-2026), FAA registry zips (daily), airmen zips (monthly) |
-| **Organized** | SQLite | `faa_aircraft`, `adsb_completed_legs`, `ntsb_accidents`, `faa_docindex`, `knowledge_graph` |
-| **Analytics** | SQLite | `operator_market_share`, `route_trends`, `airport_activity`, `fleet_snapshot`, `aircraft_utilization` |
+| **Organized** | PostgreSQL (Supabase) | `faa_aircraft`, `adsb_completed_legs`, `ntsb_accidents`, `faa_docindex`, `knowledge_graph` |
+| **Analytics** | PostgreSQL (Supabase) | `operator_market_share`, `route_trends`, `airport_activity`, `fleet_snapshot`, `aircraft_utilization` |
 
 ## Deployment
 
@@ -107,6 +107,8 @@ AI-powered charter brokerage engine and aviation intelligence platform for Orang
 | `eval:quote` | Quote accuracy evaluation (20 scenarios) |
 | `health:check` | Data freshness check (standalone) |
 | `sim` | 25 deal simulation scenarios |
+| `db:migrate-pg` | Create all 42 PostgreSQL tables in Supabase |
+| `db:migrate-data` | Migrate data from SQLite → Supabase (7.86M rows) |
 
 ## API Endpoints
 
@@ -150,7 +152,7 @@ AI-powered charter brokerage engine and aviation intelligence platform for Orang
 
 ## MCP Tools (12 total, `src/mcp/tools.ts`)
 
-All query SQLite directly (no HTTP). stdio transport. Server name: `dumont-intelligence`.
+All query database directly (no HTTP). stdio transport. Server name: `dumont-intelligence`.
 
 | Tool | Purpose |
 |------|---------|
@@ -179,7 +181,7 @@ All query SQLite directly (no HTTP). stdio transport. Server name: `dumont-intel
 ## Code Patterns
 
 - **All money in integer cents** — never floats for money
-- **All dates as ISO strings** — SQLite `datetime('now')`
+- **All dates as ISO strings** — `datetime('now')` (SQLite) / `NOW()` (PG)
 - **Zod schemas** for validation — `src/schemas/` is source of truth
 - **`getDb()`** singleton — auto-migrates on first call
 - **`schema_version`** on every table — forward-compatible
@@ -189,7 +191,7 @@ All query SQLite directly (no HTTP). stdio transport. Server name: `dumont-intel
 
 ## Known Issues
 
-- Backfill and live feed contend for SQLite write locks on heavy days — `busy_timeout` handles most cases
+- PostgreSQL migration complete (7.86M rows in Supabase). Async adapter (Phase 3) pending — code still uses sync SQLite adapter locally.
 - Pilot-aircraft links are city/state proximity heuristics, not FAA-authoritative
 - `faa_docindex` collateral matching is fuzzy for non-aircraft collateral types
 - Aircraft classification uses pattern matching on `common_name` — edge cases for rare types
@@ -199,7 +201,9 @@ All query SQLite directly (no HTTP). stdio transport. Server name: `dumont-intel
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `DATABASE_PATH` | No | SQLite path (default: `./data/dumont.db`) |
+| `SUPABASE_DATABASE_URL` | Yes (prod) | PostgreSQL connection string for Supabase |
+| `DATABASE_TYPE` | No | `postgres` or `sqlite` (default: sqlite) — controls which adapter `getAdapter()` returns |
+| `DATABASE_PATH` | No | SQLite path for local dev (default: `./data/dumont.db`) |
 | `ANTHROPIC_API_KEY` | Yes (server) | Claude API for LLM calls |
 | `VAPI_SECRET` | No | Authenticates Vapi webhooks |
 | `ALLOWED_ORIGINS` | No | CORS origins, comma-separated |
@@ -221,4 +225,19 @@ npm run ingest:faa-full -- --all    # Full FAA registry ingest
 npm run ingest:ntsb         # NTSB accident database
 npm run archive:adsb -- --year 2023 # Archive ADS-B to S3
 npm run archive:faa         # Archive FAA zip to S3
+npm run db:migrate-pg       # Create PG schema in Supabase
+npm run db:migrate-data -- --all  # Migrate SQLite → Supabase
 ```
+
+## Claude Code Guidelines (Karpathy Principles)
+
+1. **Think Before Coding** — State assumptions explicitly. Present tradeoffs. Push back when a simpler approach exists. Stop and ask when confused rather than guessing.
+
+2. **Simplicity First** — Minimum code that solves the problem. No speculative features, no abstractions for single-use code, no "flexibility" that wasn't requested. If 200 lines could be 50, rewrite it.
+
+3. **Surgical Changes** — Touch only what you must. Don't "improve" adjacent code, comments, or formatting. Don't refactor things that aren't broken. Every changed line should trace directly to the request.
+
+4. **Goal-Driven Execution** — Define success criteria before coding. Transform tasks into verifiable goals:
+   - "Add validation" → "Write tests for invalid inputs, then make them pass"
+   - "Fix the bug" → "Write a test that reproduces it, then make it pass"
+   - For multi-step tasks, state a plan with verification at each step.

@@ -42,7 +42,9 @@
     "ingest:faa-full": "tsx src/ingestion/faa-full-ingest.ts",
     "ingest:ntsb": "tsx src/ingestion/ntsb-ingest.ts",
     "archive:faa": "tsx src/ingestion/archive-faa-raw.ts",
-    "quality:check": "tsx src/analytics/data-quality.ts"
+    "quality:check": "tsx src/analytics/data-quality.ts",
+    "db:migrate-pg": "tsx src/memory/migrate-pg.ts",
+    "db:migrate-data": "tsx src/memory/migrate-data.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -53,6 +55,7 @@
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
+    "pg": "^8.20.0",
     "ulid": "^3.0.2",
     "zod": "^3.24.0"
   },
@@ -61,6 +64,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.20.0",
     "tsx": "^4.21.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
