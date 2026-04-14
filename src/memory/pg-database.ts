@@ -1,8 +1,8 @@
 /**
  * PostgreSQL connection pool for Supabase.
  *
- * Reads SUPABASE_DATABASE_URL from env. Exports pool access and a query helper.
- * Used by migrate-pg.ts and the PostgresAdapter in database-adapter.ts.
+ * Reads SUPABASE_DATABASE_URL from env. Exports pool, query helper, PgSyncBridge,
+ * and the DbBridge interface shared with better-sqlite3.
  */
 
 import pg from "pg";
@@ -132,11 +132,37 @@ export function convertSql(sql: string): string {
   r = r.replace(/INSERT\s+OR\s+IGNORE/gi, "INSERT");
   // COLLATE NOCASE
   r = r.replace(/\s+COLLATE\s+NOCASE/gi, "");
+  // GROUP_CONCAT(col, sep) → STRING_AGG(col::text, sep)
+  r = r.replace(
+    /GROUP_CONCAT\s*\(\s*([^,)]+),\s*([^)]+)\)/gi,
+    "STRING_AGG($1::text, $2)",
+  );
+  // GROUP_CONCAT(col) → STRING_AGG(col::text, ',')
+  r = r.replace(
+    /GROUP_CONCAT\s*\(\s*([^)]+)\)/gi,
+    "STRING_AGG($1::text, ',')",
+  );
+  // IFNULL(a, b) → COALESCE(a, b)
+  r = r.replace(/\bIFNULL\s*\(/gi, "COALESCE(");
   // ROUND(expr, N) — PG requires numeric, not real/double precision
-  // Find each ROUND( and extract balanced parens to rewrite
   r = fixRound(r);
 
   return r;
+}
+
+// ── DbBridge interface ──────────────────────────────────────────────────────
+// Shared contract for both better-sqlite3 and PgSyncBridge.
+// better-sqlite3 returns values synchronously; PgSyncBridge returns Promises.
+// Callers use `await` on all calls — `await syncValue` passes through.
+
+export interface DbBridge {
+  prepare(sql: string): {
+    all(...params: unknown[]): unknown[] | Promise<unknown[]>;
+    get(...params: unknown[]): unknown | Promise<unknown>;
+    run(...params: unknown[]): { changes: number } | Promise<{ changes: number }>;
+  };
+  exec(sql: string): unknown;
+  close(): unknown;
 }
 
 // ── PgSyncBridge ────────────────────────────────────────────────────────────
@@ -146,7 +172,7 @@ export function convertSql(sql: string): string {
 
 let bridge: PgSyncBridge | null = null;
 
-export class PgSyncBridge {
+export class PgSyncBridge implements DbBridge {
   private p: pg.Pool;
 
   constructor(pool: pg.Pool) { this.p = pool; }

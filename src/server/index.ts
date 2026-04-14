@@ -16,6 +16,7 @@ import { intelligenceRouter } from "./routes/intelligence.js";
 import { analyticsRouter } from "./routes/analytics.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { closeDb, setPgBridge } from "../memory/database.js";
+import { closePg } from "../memory/pg-database.js";
 import { globalLimiter, heavyLimiter } from "./middleware/rate-limit.js";
 import { errorTracker, errorRouter } from "./middleware/error-tracker.js";
 
@@ -108,11 +109,13 @@ function shutdown() {
   console.log("[dumont] Shutting down gracefully...");
   server.close(() => {
     closeDb();
+    if (process.env.DATABASE_TYPE === "postgres") closePg().catch(() => {});
     process.exit(0);
   });
   // Force exit after 5s if connections don't close
   setTimeout(() => {
     closeDb();
+    if (process.env.DATABASE_TYPE === "postgres") closePg().catch(() => {});
     process.exit(1);
   }, 5000).unref();
 }

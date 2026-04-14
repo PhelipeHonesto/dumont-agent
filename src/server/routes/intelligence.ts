@@ -19,26 +19,10 @@ import { getDataHealth, getFeedHealth } from "../../monitoring/health-queries.js
 import { getLatestQualityReport } from "../../analytics/data-quality.js";
 import {
   validateTailNumber, validateIcaoCode, validatePositiveInt,
-  sanitizeString, SanitizeError,
+  sanitizeString, handleSanitizeError, clampOffset,
 } from "../middleware/sanitize.js";
 
 export const intelligenceRouter = Router();
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function clampOffset(raw: unknown): number {
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
-}
-
-// Catch SanitizeError and return 400
-function handleSanitizeError(err: unknown, res: Response): boolean {
-  if (err instanceof SanitizeError) {
-    res.status(err.status).json({ error: err.message });
-    return true;
-  }
-  return false;
-}
 
 // ── GET /api/aircraft/:tailNumber ──────────────────────────────────────────
 

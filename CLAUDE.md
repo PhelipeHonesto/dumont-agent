@@ -183,7 +183,8 @@ All query database directly (no HTTP). stdio transport. Server name: `dumont-int
 - **All money in integer cents** — never floats for money
 - **All dates as ISO strings** — `datetime('now')` (SQLite) / `NOW()` (PG)
 - **Zod schemas** for validation — `src/schemas/` is source of truth
-- **`getDb()`** singleton — auto-migrates on first call
+- **`getDatabase()`** returns `DbBridge` — SQLite or PgSyncBridge based on `DATABASE_TYPE`. Callers `await` all `.prepare().all/get/run` calls.
+- **`getDb()`** returns raw better-sqlite3 (for KnowledgeGraphStore, health-queries, ingestion scripts)
 - **`schema_version`** on every table — forward-compatible
 - **`deal_events` is append-only** — no UPDATE, no DELETE
 - **Express 5** with `asyncHandler` wrapper
@@ -191,7 +192,7 @@ All query database directly (no HTTP). stdio transport. Server name: `dumont-int
 
 ## Known Issues
 
-- PostgreSQL migration complete (7.86M rows in Supabase). Async adapter (Phase 3) pending — code still uses sync SQLite adapter locally.
+- PostgreSQL migration complete (7.86M rows). API/MCP/analytics read from Supabase when `DATABASE_TYPE=postgres`. KnowledgeGraphStore, health-queries, and ingestion scripts still use SQLite locally.
 - Pilot-aircraft links are city/state proximity heuristics, not FAA-authoritative
 - `faa_docindex` collateral matching is fuzzy for non-aircraft collateral types
 - Aircraft classification uses pattern matching on `common_name` — edge cases for rare types
@@ -202,7 +203,7 @@ All query database directly (no HTTP). stdio transport. Server name: `dumont-int
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `SUPABASE_DATABASE_URL` | Yes (prod) | PostgreSQL connection string for Supabase |
-| `DATABASE_TYPE` | No | `postgres` or `sqlite` (default: sqlite) — controls which adapter `getAdapter()` returns |
+| `DATABASE_TYPE` | No | `postgres` or `sqlite` (default: sqlite) — controls which backend `getDatabase()` returns |
 | `DATABASE_PATH` | No | SQLite path for local dev (default: `./data/dumont.db`) |
 | `ANTHROPIC_API_KEY` | Yes (server) | Claude API for LLM calls |
 | `VAPI_SECRET` | No | Authenticates Vapi webhooks |

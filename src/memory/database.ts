@@ -10,6 +10,7 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import { mkdirSync } from "node:fs";
 import { runMigrations } from "./migrations.js";
+import type { DbBridge } from "./pg-database.js";
 
 let db: Database.Database | null = null;
 
@@ -71,11 +72,9 @@ export function createTestDb(): Database.Database {
  */
 
 // Cached PgSyncBridge instance (lazy-loaded)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let pgBridge: any = null;
+let pgBridge: DbBridge | null = null;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function getDatabase(): any {
+export function getDatabase(): DbBridge {
   if (process.env.DATABASE_TYPE === "postgres") {
     if (pgBridge) return pgBridge;
     // Dynamic import at module level is not possible synchronously in ESM.
@@ -88,7 +87,6 @@ export function getDatabase(): any {
 /**
  * Initialize the PG bridge. Call once at server startup when DATABASE_TYPE=postgres.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function setPgBridge(bridge: any): void {
+export function setPgBridge(bridge: DbBridge): void {
   pgBridge = bridge;
 }

@@ -5,8 +5,8 @@
  * for API endpoints and MCP tools.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Db = any; // Accepts both better-sqlite3.Database and PgSyncBridge
+import type { DbBridge } from "../memory/pg-database.js";
+type Db = DbBridge;
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

@@ -118,3 +118,24 @@ export function validateAircraftClass(raw: unknown): string | undefined {
   }
   return s;
 }
+
+// ── Offset ──────────────────────────────────────────────────────────────────
+
+/** Validate and clamp a non-negative offset. Returns 0 if missing/invalid. */
+export function clampOffset(raw: unknown): number {
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+}
+
+// ── Express error helper ────────────────────────────────────────────────────
+
+import type { Response } from "express";
+
+/** Catch SanitizeError and send 400 response. Returns true if handled. */
+export function handleSanitizeError(err: unknown, res: Response): boolean {
+  if (err instanceof SanitizeError) {
+    res.status(err.status).json({ error: err.message });
+    return true;
+  }
+  return false;
+}

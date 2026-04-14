@@ -27,18 +27,10 @@ import {
 } from "../../analytics/wingx-queries.js";
 import {
   validateIcaoCode, validateMonth, validateDate, validatePositiveInt,
-  validateAircraftClass, sanitizeString, SanitizeError,
+  validateAircraftClass, sanitizeString, handleSanitizeError,
 } from "../middleware/sanitize.js";
 
 export const analyticsRouter = Router();
-
-function handleSanitizeError(err: unknown, res: Response): boolean {
-  if (err instanceof SanitizeError) {
-    res.status(err.status).json({ error: err.message });
-    return true;
-  }
-  return false;
-}
 
 // ── GET /api/analytics/market ─────────────────────────────────────────────
 
