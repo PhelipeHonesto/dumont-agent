@@ -44,7 +44,8 @@
     "archive:faa": "tsx src/ingestion/archive-faa-raw.ts",
     "quality:check": "tsx src/analytics/data-quality.ts",
     "db:migrate-pg": "tsx src/memory/migrate-pg.ts",
-    "db:migrate-data": "tsx src/memory/migrate-data.ts"
+    "db:migrate-data": "tsx src/memory/migrate-data.ts",
+    "embeddings:build": "tsx src/analytics/embeddings.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

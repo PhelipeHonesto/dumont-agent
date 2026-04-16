@@ -395,6 +395,30 @@ intelligenceRouter.get(
   }),
 );
 
+// ── GET /api/routes/:origin/:destination/similar ──────────────────────────
+
+intelligenceRouter.get(
+  "/api/routes/:origin/:destination/similar",
+  asyncHandler(async (req: Request, res: Response) => {
+    let origin: string, destination: string;
+    try {
+      origin = validateIcaoCode(req.params.origin);
+      destination = validateIcaoCode(req.params.destination);
+    } catch (e) { if (handleSanitizeError(e, res)) return; throw e; }
+    const limit = validatePositiveInt(req.query.limit, 5, 20);
+
+    if (process.env.DATABASE_TYPE !== "postgres") {
+      res.json({ error: "Similar routes requires PostgreSQL with pgvector", similar: [] });
+      return;
+    }
+
+    const { getPool } = await import("../../memory/pg-database.js");
+    const { findSimilarRoutes } = await import("../../analytics/embeddings.js");
+    const similar = await findSimilarRoutes(getPool(), origin, destination, limit);
+    res.json({ route: { origin, destination }, similar });
+  }),
+);
+
 // ── GET /api/market/listings ───────────────────────────────────────────────
 
 intelligenceRouter.get(

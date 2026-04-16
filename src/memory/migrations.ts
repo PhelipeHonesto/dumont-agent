@@ -1000,6 +1000,14 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    id: 31,
+    name: "add_route_vectors_and_lineage",
+    sql: `
+      ALTER TABLE adsb_completed_legs ADD COLUMN source_batch TEXT;
+      ALTER TABLE eval_run_summaries ADD COLUMN slice_results TEXT;
+    `,
+  },
 ];
 
 /**

@@ -252,9 +252,37 @@ function makeErrorRow(
   };
 }
 
+// ── Slice Analysis ──────────────────────────────────────────────────────
+
+interface SliceResult { total: number; within20: number; accuracy: number }
+
+function computeSlices(scored: EvalRow[]): Record<string, SliceResult> {
+  const sliceBy = (filter: (r: EvalRow) => boolean): SliceResult => {
+    const filtered = scored.filter(filter);
+    const w20 = filtered.filter((r) => r.within20Pct).length;
+    return {
+      total: filtered.length,
+      within20: w20,
+      accuracy: filtered.length > 0 ? Math.round((w20 / filtered.length) * 10000) / 100 : 0,
+    };
+  };
+
+  return {
+    // By aircraft class
+    class_light: sliceBy((r) => r.aircraftClass === "light"),
+    class_midsize: sliceBy((r) => r.aircraftClass === "midsize"),
+    class_super_mid: sliceBy((r) => r.aircraftClass === "super_mid"),
+    class_heavy: sliceBy((r) => r.aircraftClass === "heavy"),
+    // By route length (estimate from price as proxy — short routes are cheaper)
+    price_under_20k: sliceBy((r) => (r.osaPriceCents ?? 0) < 2_000_000),
+    price_20k_50k: sliceBy((r) => (r.osaPriceCents ?? 0) >= 2_000_000 && (r.osaPriceCents ?? 0) < 5_000_000),
+    price_over_50k: sliceBy((r) => (r.osaPriceCents ?? 0) >= 5_000_000),
+  };
+}
+
 // ── Persist Results ──────────────────────────────────────────────────────
 
-function persistResults(runId: string, rows: EvalRow[], durationMs: number): void {
+function persistResults(runId: string, rows: EvalRow[], durationMs: number, slices?: Record<string, SliceResult>): void {
   const db = getDb();
 
   const insertRow = db.prepare(
@@ -286,8 +314,8 @@ function persistResults(runId: string, rows: EvalRow[], durationMs: number): voi
   const insertSummary = db.prepare(
     `INSERT INTO eval_run_summaries
        (run_id, total_scenarios, scored_scenarios, within_20_pct_count,
-        accuracy_pct, mean_error_pct, median_error_pct, max_error_pct, duration_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        accuracy_pct, mean_error_pct, median_error_pct, max_error_pct, duration_ms, slice_results)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
 
   const transaction = db.transaction(() => {
@@ -302,6 +330,7 @@ function persistResults(runId: string, rows: EvalRow[], durationMs: number): voi
     insertSummary.run(
       runId, rows.length, scored.length, within20Count,
       accuracyPct, meanError, medianError, maxError, durationMs,
+      slices ? JSON.stringify(slices) : null,
     );
   });
 
@@ -353,12 +382,22 @@ async function main() {
   }
 
   const totalMs = Date.now() - runStart;
+  const scored = results.filter((r) => r.status === "pass" || r.status === "fail");
+
+  // ── Slice Analysis ──────────────────────────────────────────────────
+  const slices = computeSlices(scored);
+  console.log("\n  ── Sliced Accuracy ──");
+  for (const [name, slice] of Object.entries(slices)) {
+    if ((slice as { total: number }).total > 0) {
+      const s = slice as { total: number; within20: number; accuracy: number };
+      console.log(`  ${name}: ${s.within20}/${s.total} (${s.accuracy}%)`);
+    }
+  }
 
   // ── Persist ─────────────────────────────────────────────────────────
-  persistResults(runId, results, totalMs);
+  persistResults(runId, results, totalMs, slices);
 
   // ── Summary ─────────────────────────────────────────────────────────
-  const scored = results.filter((r) => r.status === "pass" || r.status === "fail");
   const skipped = results.filter((r) => r.status === "skip");
   const errored = results.filter((r) => r.status === "error");
   const within20 = scored.filter((r) => r.within20Pct);
