@@ -86,6 +86,12 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 const BASE = window.location.origin;
 const startTime = Date.now();
 
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
 function light(status) {
   const cls = status === 'green' ? 'green' : status === 'yellow' ? 'yellow' : status === 'red' ? 'red' : 'gray';
   return '<span class="light ' + cls + '"></span>';
@@ -129,18 +135,18 @@ async function loadHealth() {
   const [data, feed] = await Promise.all([fetchJson('/api/health/data'), fetchJson('/api/health/feed')]);
   let html = '';
   if (data) {
-    html += stat('Overall', light(data.overall) + ' ' + (data.overall || 'unknown'));
+    html += stat('Overall', light(data.overall) + ' ' + esc(data.overall || 'unknown'));
     if (data.sources) {
       for (const [k, v] of Object.entries(data.sources)) {
         const s = v;
-        html += stat(k, light(s.status || 'gray') + ' ' + (s.status || '?'));
+        html += stat(esc(k), light(s.status || 'gray') + ' ' + esc(s.status || '?'));
       }
     }
   } else {
     html += stat('Data health', '<span style="color:#ef4444">unavailable</span>');
   }
   if (feed) {
-    html += stat('ADS-B feed', light(feed.feedStatus === 'alive' ? 'green' : feed.feedStatus === 'stale' ? 'yellow' : 'red') + ' ' + (feed.feedStatus || '?'));
+    html += stat('ADS-B feed', light(feed.feedStatus === 'alive' ? 'green' : feed.feedStatus === 'stale' ? 'yellow' : 'red') + ' ' + esc(feed.feedStatus || '?'));
     if (feed.positionsPerHour != null) html += stat('Positions/hr', fmt(feed.positionsPerHour));
   }
   el.innerHTML = html;
@@ -165,7 +171,7 @@ async function loadQuality() {
   const el = document.getElementById('quality');
   const data = await fetchJson('/api/health/quality');
   if (!data) { el.innerHTML = stat('Last run', 'no report yet — run npm run quality:check'); return; }
-  let html = stat('Status', light(data.overallStatus) + ' ' + (data.overallStatus || '?'));
+  let html = stat('Status', light(data.overallStatus) + ' ' + esc(data.overallStatus || '?'));
   html += stat('Last run', ago(data.runAt));
   if (data.checks) {
     const c = data.checks;
@@ -188,12 +194,12 @@ async function loadErrors() {
   let html = '';
   for (const e of data.errors.slice(0, 10)) {
     html += '<div class="error-row">';
-    html += '<span class="time">' + ago(e.timestamp) + '</span> ';
-    html += '<span class="route">' + e.method + ' ' + e.route + '</span> ';
-    html += '<span class="msg">' + (e.message || '').substring(0, 120) + '</span>';
+    html += '<span class="time">' + esc(ago(e.timestamp)) + '</span> ';
+    html += '<span class="route">' + esc(e.method) + ' ' + esc(e.route) + '</span> ';
+    html += '<span class="msg">' + esc((e.message || '').substring(0, 120)) + '</span>';
     html += '</div>';
   }
-  if (data.count > 10) html += '<div style="color:#666;font-size:0.75rem;margin-top:4px;">' + data.count + ' total errors</div>';
+  if (data.count > 10) html += '<div style="color:#666;font-size:0.75rem;margin-top:4px;">' + esc(data.count) + ' total errors</div>';
   el.innerHTML = html;
 }
 
