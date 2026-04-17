@@ -1,5 +1,7 @@
 # Dumont Agent
 
+[![CI](https://github.com/PhelipeHonesto/dumont-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/PhelipeHonesto/dumont-agent/actions/workflows/ci.yml)
+
 > *Named after Santos-Dumont — the Brazilian who flew first. Now an AI that brokers flights.*
 
 **Dumont Agent** is the AI-powered charter brokerage orchestrator for [OSA Connect](https://orangesunshineaviation.com) (Orange Sunshine Aviation). It replaces the traditional RFQ-based charter booking process with a single intelligent pipeline that qualifies clients, estimates pricing, selects operators, and closes deals — protecting both sides of every transaction.
