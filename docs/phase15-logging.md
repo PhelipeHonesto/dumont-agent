@@ -1,5 +1,10 @@
 # Phase 15 Step 1 — Structured logging (pino)
 
+> **Step 2 shipped**: `error` and `fatal` events now bridge to Sentry via
+> a pino `logMethod` hook. See `docs/phase15-step2-sentry.md` for setup,
+> verification, and the auto-triage pattern.
+
+
 ## Why pino
 
 JSON-native, ~5x faster than winston under load, used by Fastify + NestJS

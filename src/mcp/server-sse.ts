@@ -17,8 +17,19 @@ import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { closeDb } from "../memory/database.js";
 import { registerTools } from "./tools.js";
 import { childLogger } from "../utils/logger.js";
+import { initSentry, flushSentry } from "../utils/sentry.js";
 
+initSentry();
 const log = childLogger("mcp-sse");
+
+process.on("uncaughtException", (err) => {
+  log.fatal({ err }, "uncaught exception");
+  void flushSentry().finally(() => setTimeout(() => process.exit(1), 200));
+});
+process.on("unhandledRejection", (reason) => {
+  log.fatal({ err: reason }, "unhandled rejection");
+  void flushSentry().finally(() => setTimeout(() => process.exit(1), 200));
+});
 
 const PORT = parseInt(process.env.MCP_SSE_PORT ?? "3002", 10);
 const AUTH_TOKEN = process.env.MCP_AUTH_TOKEN;

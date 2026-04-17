@@ -53,6 +53,7 @@
     "@aws-sdk/lib-storage": "^3.1029.0",
     "@dsnp/parquetjs": "^1.8.7",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@sentry/node": "^10.49.0",
     "better-sqlite3": "^12.8.0",
     "cors": "^2.8.6",
     "duckdb": "^1.4.4",

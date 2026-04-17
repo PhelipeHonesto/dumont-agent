@@ -1,7 +1,20 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import pino from "pino";
 import { Writable } from "node:stream";
-import { childLogger } from "../src/utils/logger.js";
+
+const sentryMocks = vi.hoisted(() => ({
+  captureException: vi.fn(),
+  captureFatal: vi.fn(),
+}));
+
+vi.mock("../src/utils/sentry.js", () => ({
+  captureException: sentryMocks.captureException,
+  captureFatal: sentryMocks.captureFatal,
+  initSentry: vi.fn(),
+  flushSentry: vi.fn().mockResolvedValue(undefined),
+  isSentryEnabled: vi.fn().mockReturnValue(false),
+  scrubSecrets: (x: unknown) => x,
+}));
 
 function captured(): { sink: Writable; lines: () => Record<string, unknown>[] } {
   const chunks: string[] = [];
@@ -19,7 +32,13 @@ function captured(): { sink: Writable; lines: () => Record<string, unknown>[] } 
 }
 
 describe("logger", () => {
-  it("exposes info/warn/error/fatal/debug methods on the shared logger", () => {
+  beforeEach(() => {
+    sentryMocks.captureException.mockClear();
+    sentryMocks.captureFatal.mockClear();
+  });
+
+  it("exposes info/warn/error/fatal/debug methods on the shared logger", async () => {
+    const { childLogger } = await import("../src/utils/logger.js");
     const log = childLogger("test");
     for (const m of ["info", "warn", "error", "fatal", "debug", "trace"] as const) {
       expect(typeof log[m]).toBe("function");
@@ -58,5 +77,52 @@ describe("logger", () => {
     expect(serialized.type).toBe("Error");
     expect(serialized.message).toBe("boom");
     expect(typeof serialized.stack).toBe("string");
+  });
+});
+
+describe("logger → Sentry bridge", () => {
+  beforeEach(() => {
+    sentryMocks.captureException.mockClear();
+    sentryMocks.captureFatal.mockClear();
+  });
+
+  it("log.error calls captureException once with component + extra", async () => {
+    vi.resetModules();
+    const { childLogger } = await import("../src/utils/logger.js");
+    const log = childLogger("bridge-test");
+    const err = new Error("oops");
+    log.error({ err, tail: "N788QS" }, "failed");
+    expect(sentryMocks.captureException).toHaveBeenCalledTimes(1);
+    const [errArg, extraArg] = sentryMocks.captureException.mock.calls[0]!;
+    expect(errArg).toBe(err);
+    expect(extraArg).toMatchObject({ component: "bridge-test", tail: "N788QS", msg: "failed" });
+    expect(sentryMocks.captureFatal).not.toHaveBeenCalled();
+  });
+
+  it("log.fatal calls captureFatal once", async () => {
+    vi.resetModules();
+    const { childLogger } = await import("../src/utils/logger.js");
+    const log = childLogger("bridge-test");
+    log.fatal({ err: new Error("bad") }, "very bad");
+    expect(sentryMocks.captureFatal).toHaveBeenCalledTimes(1);
+    expect(sentryMocks.captureException).not.toHaveBeenCalled();
+  });
+
+  it("log.warn does NOT call Sentry", async () => {
+    vi.resetModules();
+    const { childLogger } = await import("../src/utils/logger.js");
+    const log = childLogger("bridge-test");
+    log.warn({ reason: "retry" }, "warning");
+    expect(sentryMocks.captureException).not.toHaveBeenCalled();
+    expect(sentryMocks.captureFatal).not.toHaveBeenCalled();
+  });
+
+  it("log.info does NOT call Sentry", async () => {
+    vi.resetModules();
+    const { childLogger } = await import("../src/utils/logger.js");
+    const log = childLogger("bridge-test");
+    log.info({ rows: 42 }, "ok");
+    expect(sentryMocks.captureException).not.toHaveBeenCalled();
+    expect(sentryMocks.captureFatal).not.toHaveBeenCalled();
   });
 });
