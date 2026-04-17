@@ -28,7 +28,9 @@ import { sourcing } from "../capabilities/sourcing.js";
 import { DealStore } from "../memory/deal-store.js";
 import { AviapagesClient } from "../integrations/aviapages.js";
 import type { FetchFn } from "../integrations/aviapages.js";
-import { getDb, closeDb } from "../memory/database.js";
+import { getDatabase, setPgBridge } from "../memory/database.js";
+import { getPgBridge, closePg } from "../memory/pg-database.js";
+import { bulkUpsert } from "../memory/bulk-upsert.js";
 
 import {
   AIRPORTS, OPERATORS, OPERATOR_CERTS, mockAviapagesEstimate,
@@ -282,17 +284,8 @@ function computeSlices(scored: EvalRow[]): Record<string, SliceResult> {
 
 // ── Persist Results ──────────────────────────────────────────────────────
 
-function persistResults(runId: string, rows: EvalRow[], durationMs: number, slices?: Record<string, SliceResult>): void {
-  const db = getDb();
-
-  const insertRow = db.prepare(
-    `INSERT INTO eval_runs
-       (run_id, scenario_id, scenario_title, departure, arrival, aircraft_class,
-        estimate_low_cents, estimate_high_cents, estimate_median_cents,
-        osa_price_cents, market_low_cents, market_high_cents,
-        within_20_pct, error_pct, status, error_message, duration_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  );
+async function persistResults(runId: string, rows: EvalRow[], durationMs: number, slices?: Record<string, SliceResult>): Promise<void> {
+  const db = getDatabase();
 
   const scored = rows.filter((r) => r.status === "pass" || r.status === "fail");
   const within20Count = scored.filter((r) => r.within20Pct).length;
@@ -311,35 +304,48 @@ function persistResults(runId: string, rows: EvalRow[], durationMs: number, slic
     ? Math.round(Math.max(...errors) * 100) / 100
     : null;
 
-  const insertSummary = db.prepare(
-    `INSERT INTO eval_run_summaries
-       (run_id, total_scenarios, scored_scenarios, within_20_pct_count,
-        accuracy_pct, mean_error_pct, median_error_pct, max_error_pct, duration_ms, slice_results)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  // Bulk insert all scenario rows (plain INSERT — id is SERIAL / no natural PK)
+  const evalRunRows = rows.map((r) => [
+    runId, r.scenarioId, r.scenarioTitle, r.departure, r.arrival, r.aircraftClass,
+    r.estimateLowCents, r.estimateHighCents, r.estimateMedianCents,
+    r.osaPriceCents, r.marketLowCents, r.marketHighCents,
+    r.within20Pct, r.errorPct, r.status, r.errorMessage, r.durationMs,
+  ]);
+  await bulkUpsert(
+    db, "eval_runs",
+    ["run_id", "scenario_id", "scenario_title", "departure", "arrival", "aircraft_class",
+     "estimate_low_cents", "estimate_high_cents", "estimate_median_cents",
+     "osa_price_cents", "market_low_cents", "market_high_cents",
+     "within_20_pct", "error_pct", "status", "error_message", "duration_ms"],
+    evalRunRows,
+    [],
   );
 
-  const transaction = db.transaction(() => {
-    for (const r of rows) {
-      insertRow.run(
-        runId, r.scenarioId, r.scenarioTitle, r.departure, r.arrival, r.aircraftClass,
-        r.estimateLowCents, r.estimateHighCents, r.estimateMedianCents,
-        r.osaPriceCents, r.marketLowCents, r.marketHighCents,
-        r.within20Pct ? 1 : 0, r.errorPct, r.status, r.errorMessage, r.durationMs,
-      );
-    }
-    insertSummary.run(
+  // Single-row summary (plain INSERT)
+  await bulkUpsert(
+    db, "eval_run_summaries",
+    ["run_id", "total_scenarios", "scored_scenarios", "within_20_pct_count",
+     "accuracy_pct", "mean_error_pct", "median_error_pct", "max_error_pct",
+     "duration_ms", "slice_results"],
+    [[
       runId, rows.length, scored.length, within20Count,
       accuracyPct, meanError, medianError, maxError, durationMs,
       slices ? JSON.stringify(slices) : null,
-    );
-  });
-
-  transaction();
+    ]],
+    [],
+  );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
 async function main() {
+  if (process.env["DATABASE_TYPE"] !== "postgres") {
+    throw new Error(
+      "quote-eval requires DATABASE_TYPE=postgres (SQLite path removed in Phase 6)",
+    );
+  }
+  setPgBridge(getPgBridge());
+
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const scenariosPath = resolve(__dirname, "..", "..", "scenarios", "scenarios.json");
   const file: ScenarioFile = JSON.parse(readFileSync(scenariosPath, "utf-8"));
@@ -349,6 +355,11 @@ async function main() {
   // Select first 20 scenarios
   const scenarios = file.scenarios.slice(0, 20);
 
+  // DealStore is an isolated SQLite scratch DB for the eval harness — it
+  // runs deals through the pipeline without touching production state. This
+  // is intentional test sandboxing and does NOT violate Phase 6's
+  // "no SQLite writers" rule (eval_runs + eval_run_summaries, the tables
+  // this harness actually persists to, are on Postgres).
   const dealStore = new DealStore(resolve(__dirname, "..", "..", "data", "eval-deals.db"));
   const aviapages = createMockAviapages();
   const runId = ulid();
@@ -395,7 +406,7 @@ async function main() {
   }
 
   // ── Persist ─────────────────────────────────────────────────────────
-  persistResults(runId, results, totalMs, slices);
+  await persistResults(runId, results, totalMs, slices);
 
   // ── Summary ─────────────────────────────────────────────────────────
   const skipped = results.filter((r) => r.status === "skip");
@@ -428,7 +439,7 @@ async function main() {
   console.log(`  Run logged:  eval_runs (run_id: ${runId})`);
   console.log(`  ${hr}\n`);
 
-  closeDb();
+  await closePg();
 }
 
 main().catch((err) => {

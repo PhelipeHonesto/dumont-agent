@@ -145,10 +145,138 @@ M  scripts/backfill-2023.ts                  (follows archiveDay signature chang
 
 No new deps. No schema changes.
 
-## Next: Tier 2
+## Tier 2 — scripts needed for Phase 7 (complete)
 
-- `src/ingestion/history-backfill.ts` — needed for Phase 7 backfill
-- `src/ingestion/adsblol-ingest.ts` — sub-script used by history-backfill
-- `src/eval/quote-eval.ts` — eval CLI
+### 5. `src/ingestion/adsblol-ingest.ts`
 
-Same pattern; no surprises expected. Will handle after Tier 1 approval.
+**Structural rewrite.** The old file had `processFile(path, db, stats)` that
+read a trace, downsampled, then wrote positions and upserted aircraft to
+SQLite mid-loop. That API doesn't translate to the Phase 2 architecture —
+`adsb_positions` has a 48 h TTL, so historical positions would be deleted on
+the next cleanup cycle.
+
+**New API (pure parse + in-memory leg detection, bulk writes):**
+- `parseTraceFile(filePath, stats) → ParsedTrace | null` — reads, decompresses,
+  filters, downsamples; returns data, no DB writes.
+- `detectLegs(parsed, airports) → DetectedLeg[]` — scans one aircraft's
+  downsampled points in memory and emits completed legs (mirrors the old
+  position-backed detection logic exactly).
+- `bulkInsertLegs(db, legs)` — plain bulk INSERT into `adsb_completed_legs`.
+- `bulkUpsertAircraft(db, parses)` — bulk upsert into `faa_aircraft` with
+  a custom `updateClause` using `COALESCE` to preserve existing non-null
+  enrichment fields.
+- `loadAirports(db) → Airport[]` + `findNearestInMemory(airports, lat, lon)`
+  — lookup index, loaded once per run (198 rows, trivial memory).
+
+**Removed:** `processFile` (breaking change, only 2 callers both under our
+control), `insertPositions` (historical positions never go to PG),
+`materializeLegs` (now per-file in-memory), `computeAircraftStates`
+(historical state snapshots aren't useful — the live worker owns state),
+`findNearestAirport(db, ...)` (replaced by in-memory equivalent + the
+`loadAirports` preload).
+
+**Standalone mode (`npm run ingest:history <dir>`):** still works. Same
+flow as history-backfill: parse → detect legs in memory → bulk write, in
+chunks of 500 files.
+
+**Behavior preserved:** same downsampling logic, same 5-minute taxi filter,
+same US-registration (`data.r.startsWith("N")`) gate, same nearest-airport
+radius (15 nm). Aircraft type → class mapping (`ICAO_TYPE_CLASS`) unchanged.
+
+---
+
+### 6. `src/ingestion/history-backfill.ts`
+
+**Architectural simplification enabled by (5).** The old script wrote
+positions to `adsb_positions` in SQLite, then ran a cross-file
+`materializeLegsForDay` step that queried positions back out for leg
+detection, then ran `DELETE FROM adsb_positions WHERE timestamp >= ? AND
+timestamp < ?` to clean up. That whole dance existed because the old code
+couldn't hold positions in memory.
+
+With the new `parseTraceFile` + `detectLegs` pair, each trace file is
+self-contained: parse → detect → emit legs. No temp storage. No cleanup.
+
+**Per-day flow (new):**
+1. Download + reassemble tar from adsb.lol GitHub release.
+2. Extract to `/tmp`.
+3. Walk the extract, match trace_full_{icao}.json{.gz} against the
+   charter-hex set loaded from `faa_aircraft`.
+4. In 500-file chunks: `parseTraceFile` → `detectLegs` → accumulate.
+5. After each chunk: `bulkUpsertAircraft` (new discoveries) +
+   `bulkInsertLegs`.
+6. `backfill_progress` row upserted on start (`processing`) and finish
+   (`complete` or `failed`).
+
+**Writes now on PG:**
+- `adsb_completed_legs` — bulk insert of detected legs per chunk.
+- `faa_aircraft` — bulk upsert of aircraft discovered via traces (COALESCE
+  preservation on enrichment fields).
+- `backfill_progress` — per-day progress via DbBridge.
+
+**Deferred to a later deliverable (flagged, not implemented here):** the
+"full packager equivalent" option — writing positions directly to S3
+Parquet so historical days look identical to packager-produced days. That
+would require threading the D2.1 packager's in-memory parquet writer into
+this script. Much bigger scope; the simpler version (legs only) is what
+unblocks the Phase 7 legs-gap backfill. When we want historical per-day
+parquets, we'll add a `history-package-positions.ts` that calls the same
+underlying parquet writer from a tar stream.
+
+---
+
+### 7. `src/eval/quote-eval.ts`
+
+**Writes now on PG:** `eval_runs` (one row per scenario, bulk INSERT,
+plain — `id` is SERIAL), `eval_run_summaries` (single row per run).
+
+**Intentional SQLite retention:** `DealStore(.../eval-deals.db)` stays on
+SQLite. This is a **scratch sandbox database** for the eval harness — the
+pipeline runs test scenarios through it without touching production deal
+state. This does not violate Phase 6's "no SQLite writers" rule because:
+- It's a separate file from `dumont.db` (production state).
+- It's wiped each run conceptually (eval is idempotent, sandbox-only).
+- The data it produces (`deals` rows for simulated scenarios) never
+  flows anywhere downstream.
+
+When SQLite is retired in Phase 9, this can either switch to an ephemeral
+in-memory SQLite or a per-run PG schema. Cheap migration, low priority.
+
+**Behavior change:** `within_20_pct` was written as `0/1` integer in SQLite;
+PG schema has it as `BOOLEAN`. Now passing `r.within20Pct` directly (the
+struct already carries a bool). Verified via `schema-pg.sql`.
+
+---
+
+## Verification (Tier 2)
+
+```
+npm run typecheck   → clean
+npm test            → 649 passed (21 files, 3 skipped). No regressions.
+```
+
+No scripts invoked against real PG. Tier 2 scripts are CLIs that do large
+writes; conservative hold until deploy time.
+
+## Files changed in Tier 2
+
+```
+M  src/ingestion/adsblol-ingest.ts            (structural rewrite — new parse+detect API)
+M  src/ingestion/history-backfill.ts          (simpler flow — no temp position writes)
+M  src/eval/quote-eval.ts                     (persistResults → PG bulk; DealStore SQLite retained)
+```
+
+No new deps. No schema changes. `npm run ingest:history` CLI contract
+unchanged (still takes a traces directory); `npm run backfill:history`
+flags unchanged (`--from`, `--to`).
+
+## Next: Tier 3 (not starting until approved)
+
+Per the tier plan:
+- `src/ingestion/faa-full-ingest.ts`
+- `src/ingestion/faa-operators-full.ts`
+- `src/ingestion/icao-hex-ingest.ts`
+- `src/ingestion/parquet-ingest.ts`
+- `src/ingestion/opensky-worker.ts` (audit whether still called)
+- `classify-aircraft.mjs` (root, rewrite as .ts)
+- `update-graph.mjs` (root, rewrite as .ts)
