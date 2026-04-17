@@ -666,7 +666,26 @@ CREATE TABLE IF NOT EXISTS knowledge_graph (
   last_leg_dest TEXT,
   operator_argus TEXT,
   operator_wyvern TEXT,
-  operator_safety_score INTEGER DEFAULT 0
+  operator_safety_score INTEGER DEFAULT 0,
+  -- Graph flags (populated by src/ingestion/update-graph.ts, Phase 6 Tier 3)
+  is_charter_class INTEGER DEFAULT 0,
+  is_near_network_airport INTEGER DEFAULT 0,
+  is_ghost_candidate INTEGER DEFAULT 0,
+  ghost_airport TEXT,
+  total_legs INTEGER DEFAULT 0,
+  legs_last_30d INTEGER DEFAULT 0,
+  updated_at TEXT
+);
+
+-- ── fleet_stats (Phase 6 Tier 3 — written by update-graph.ts) ───────────────
+
+CREATE TABLE IF NOT EXISTS fleet_stats (
+  aircraft_class TEXT PRIMARY KEY,
+  total_tracked INTEGER DEFAULT 0,
+  airborne INTEGER DEFAULT 0,
+  idle INTEGER DEFAULT 0,
+  ghost_candidates INTEGER DEFAULT 0,
+  updated_at TEXT
 );
 
 -- ── 26: archive_progress ────────────────────────────────────────────────────

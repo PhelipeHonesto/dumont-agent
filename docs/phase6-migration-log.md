@@ -270,13 +270,257 @@ No new deps. No schema changes. `npm run ingest:history` CLI contract
 unchanged (still takes a traces directory); `npm run backfill:history`
 flags unchanged (`--from`, `--to`).
 
-## Next: Tier 3 (not starting until approved)
+## Tier 3 — less-critical CLIs + root `.mjs` (complete)
 
-Per the tier plan:
-- `src/ingestion/faa-full-ingest.ts`
-- `src/ingestion/faa-operators-full.ts`
-- `src/ingestion/icao-hex-ingest.ts`
-- `src/ingestion/parquet-ingest.ts`
-- `src/ingestion/opensky-worker.ts` (audit whether still called)
-- `classify-aircraft.mjs` (root, rewrite as .ts)
-- `update-graph.mjs` (root, rewrite as .ts)
+### 8. `src/ingestion/icao-hex-ingest.ts`
+
+**Writes now on PG:** `faa_aircraft` (updates `icao_hex` on existing rows).
+
+**Structural change:** the old per-row `UPDATE ... WHERE tail_number = ?` loop
+was replaced with a bulk `UPDATE ... FROM (VALUES …)` round-trip per batch of
+1,000 tails. Round-trip count drops from ~60,000 to ~60 for a typical OpenSky
+CSV. Mirrors the old `IS NULL OR != ?` guard in the WHERE clause so we only
+touch rows whose `icao_hex` actually needs updating.
+
+**Surprise:** none.
+
+---
+
+### 9. `src/ingestion/parquet-ingest.ts`
+
+**Writes now on PG:** `adsb_completed_legs` (plain bulk INSERT, `id` is
+SERIAL), `faa_aircraft` (bulk upsert with COALESCE preservation).
+
+**Dedup semantic preserved.** The old per-row `SELECT ... WHERE tail_number=?
+AND departure_time BETWEEN datetime(?, '-10 minutes') ...` check did one
+round-trip per row. Replaced with a **per-batch pre-fetch**: for each 10K-row
+batch, `SELECT tail_number, departure_time FROM adsb_completed_legs WHERE
+tail_number IN (…)` once, build a minute-bucket Set, filter in-memory. Same
+±10-min fuzzy match, O(batch-size) instead of O(N).
+
+**Surprise:** none.
+
+---
+
+### 10. `src/ingestion/faa-operators-full.ts`
+
+**Writes now on PG:** `faa_operators` (bulk upsert with custom update
+clause using `LENGTH(EXCLUDED.name) > LENGTH(faa_operators.name)` logic),
+`adsb_aircraft_state` (per-operator UPDATE with `= ANY($1::text[])`).
+
+**Replaced SQLite idioms:**
+- `WHERE tail_number IN (SELECT value FROM json_each(?))` → `WHERE tail_number = ANY(?)`
+- `datetime('now', '-12 months')` → JS-computed ISO string passed as a param
+- `UPDATE … WHERE … IN (SELECT … FROM … WHERE correlated)` correlated
+  subquery → PG-native `UPDATE … FROM …` join (cleaner, same result)
+
+**Perf win:** the old per-operator trip-count query ran inside the upsert
+loop (~1,000 round-trips). New version pre-fetches all tail → count pairs
+in one `SELECT … GROUP BY tail_number`, then aggregates per-operator in
+memory. One query instead of a thousand.
+
+**Surprise:** the `LENGTH()` comparison for preferring longer operator names
+on conflict works identically in PG and SQLite. No change needed.
+
+---
+
+### 11. `src/ingestion/faa-full-ingest.ts`
+
+**Writes now on PG:** `faa_deregistered` (plain bulk INSERT after TRUNCATE),
+`faa_aircraft_types` (bulk upsert on `model_code`), `faa_engine_types` (bulk
+upsert on `engine_code`). Also shells out to `faa-daily-diff.ts` (Tier 1,
+already migrated) for MASTER.txt and to `faa-docindex-ingest.ts` (outside
+Tier 3 scope — see findings below).
+
+**Structural change:** the old `db.transaction` + array-of-closures pattern
+per batch replaced with accumulator arrays + serial-awaited `bulkUpsert`
+calls. Flushes happen per 500-row chunk via a queued-closure list; each
+chunk is executed in order to cap concurrent PG write pressure.
+
+**Surprise:** none. The `INSERT OR REPLACE` in the old ACFTREF/ENGINE inserts
+translated cleanly to `ON CONFLICT (…) DO UPDATE` because both tables have
+well-defined primary keys.
+
+---
+
+### 12. `src/ingestion/opensky-worker.ts`
+
+**Writes now on PG:** `adsb_positions` (bulk INSERT), `adsb_aircraft_state`
+(bulk UPSERT with the same custom `updateClause` pattern used by the D1
+rewrite of `adsblol-live-worker.ts`).
+
+**Same D1 pattern applied:**
+- Startup requires `DATABASE_TYPE=postgres`, throws otherwise.
+- In-memory airports index + FAA enrichment cache (hourly refresh).
+- `findNearestInMemory()` replaces the old per-row SQL lookup.
+- TTL extended to 48 h to match Phase 2's hot tier.
+- Graceful shutdown via SIGINT/SIGTERM, closes PG pool.
+
+**Still called:** the Express server (`src/server/index.ts:101`) auto-starts
+it unless `ENABLE_OPENSKY=false`. No deletion warranted. Its role in the
+architecture is "fallback feed if adsblol is down" — PM2 runs adsblol as
+the primary `feed` process; opensky only kicks in when the server explicitly
+enables it.
+
+**Surprise:** none — this file is the opensky analog of the D1 rewrite, so
+the pattern was well-trodden.
+
+---
+
+### 13. `src/ingestion/classify-aircraft.ts` (was `classify-aircraft.mjs`)
+
+**Converted `.mjs` → `.ts`.** Moved from repo root to `src/ingestion/`.
+Pipeline.ts step 2 updated: `node classify-aircraft.mjs` →
+`npx tsx src/ingestion/classify-aircraft.ts`. Old `.mjs` deleted.
+
+**Writes now on PG:** `faa_aircraft.aircraft_class` via pattern-based UPDATEs.
+Each rule is a single `UPDATE … SET aircraft_class = ? WHERE aircraft_class
+IS NULL AND common_name LIKE ?`. ~80 rules × one round-trip each = ~2–3 s
+total — well inside cron budget.
+
+**Behavior preserved:** same 80 rules, same order dependency (later rules
+only hit unmatched rows).
+
+**Surprise:** `datetime('now')` in the UPDATE SET replaced with `NOW()`
+(TIMESTAMPTZ for `updated_at`). No other SQLite-isms.
+
+---
+
+### 14. `src/ingestion/update-graph.ts` (was `update-graph.mjs`)
+
+**Converted `.mjs` → `.ts`.** Moved from repo root to `src/ingestion/`.
+Pipeline.ts step 3 updated: `node update-graph.mjs` →
+`npx tsx src/ingestion/update-graph.ts`. Old `.mjs` deleted.
+
+**Writes now on PG:** `knowledge_graph` (full rebuild — DELETE + INSERT
+from FAA ∩ ADS-B state), `fleet_stats` (per-class aggregate).
+
+**Schema additions.** The old `.mjs` created `knowledge_graph` with extra
+flags (`is_charter_class`, `is_near_network_airport`, `is_ghost_candidate`,
+`ghost_airport`, `total_legs`, `legs_last_30d`, `updated_at`) and the
+`fleet_stats` table via `CREATE TABLE IF NOT EXISTS` statements. Neither
+set of columns nor `fleet_stats` existed in `schema-pg.sql`. This migration
+adds both to `schema-pg.sql` and keeps an idempotent `CREATE TABLE IF NOT
+EXISTS` + `ALTER TABLE IF NOT EXISTS` safety net at runtime.
+
+**Replaced SQLite idioms:**
+- `SELECT ... GROUP BY f.icao_hex` with a plain join → PG `SELECT DISTINCT ON
+  (f.icao_hex)` (the SQLite version was relying on non-standard GROUP BY
+  behavior that PG doesn't support).
+- `UPDATE … SET total_legs = (SELECT COUNT(*) FROM adsb_completed_legs …)`
+  correlated subquery → PG-native `UPDATE … FROM (SELECT … GROUP BY …) sub`.
+- `datetime('now', '-30 days')` → JS-computed ISO string passed as a param.
+- `db.transaction(() => …)` wrappers → plain await (PG auto-commits).
+
+**Fuzzy-match safety propagation:** the old per-operator `UPDATE … WHERE
+operator_name LIKE '%pattern%'` loop still runs per-rated-operator (~50
+iterations, ~50 round-trips). Acceptable for a nightly cron.
+
+**Surprise:** the missing `fleet_stats` table in `schema-pg.sql` was the
+first evidence that the earlier migration didn't include what `update-graph.mjs`
+created on-the-fly. The `.mjs` was previously running against SQLite only,
+so the Postgres side was never populated with these flag columns or the
+`fleet_stats` table. This migration closes that gap.
+
+---
+
+## Step 4: remaining `better-sqlite3` imports (audit)
+
+Run after all Tier 3 files migrated:
+
+```
+=== better-sqlite3 imports in src/ingestion + src/analytics + src/eval ===
+src/ingestion/ntsb-ingest.ts         (was NOT in any tier — see findings below)
+src/analytics/data-quality.ts        (was NOT in any tier — see findings below)
+src/analytics/safety-enhanced.ts     (was NOT in any tier — see findings below)
+```
+
+And in `src/memory/`, unchanged and allowed per task rules:
+```
+src/memory/migrations.ts        (SQLite migration runner, stays)
+src/memory/database.ts          (the bridge itself)
+src/memory/pg-database.ts       (the PG bridge, imports pg not better-sqlite3)
+src/memory/knowledge-graph.ts   (read helper — allowed per task rules)
+src/memory/migrate-data.ts      (one-time SQLite→PG migration utility, stays)
+src/memory/autonomy-store.ts, webhook-dedup.ts, deal-store.ts,
+src/memory/deal-event-log.ts, message-store.ts, call-store.ts,
+src/memory/composite-stores.ts  (still SQLite-backed; retirement is Phase 9)
+src/monitoring/health-queries.ts
+```
+
+## Files outside Tier 3 that still write SQLite — flagged for later
+
+These did not appear in the Tier 1/2/3 file lists but still bind to
+`better-sqlite3` or `getDb()` and write to SQLite tables. Recommend
+addressing in a follow-up phase (Tier 4 or Phase 9 retirement):
+
+- `src/ingestion/ntsb-ingest.ts` — writes `ntsb_accidents`. Table has 0 rows
+  in both SQLite and PG per the earlier audit. Likely never run successfully.
+- `src/ingestion/airmen-ingest.ts` — writes `pilot_contacts`, `pilot_aircraft_link`.
+  Audit showed these are equal rows in both tiers (migration frozen). If this
+  runs again, SQLite would diverge.
+- `src/ingestion/faa-docindex-ingest.ts` — writes `faa_docindex`. Equal rows
+  across tiers. Shelled out to by `faa-full-ingest.ts`, so will need a
+  matching migration once we run a full FAA reload.
+- `src/ingestion/faa-ingest.ts`, `listing-tracker.ts`, `target-companies.ts`
+  — seed/scrape scripts, rarely run.
+- `src/analytics/data-quality.ts` — writes `data_quality_runs`. 0 rows in
+  both tiers — script has never run to completion.
+- `src/analytics/safety-enhanced.ts` — purpose unclear; needs audit.
+
+**Server + MCP hot paths still use `getDb()`** (flagged in the pre-Phase-6
+architecture review as "20 hot-path violations"):
+- `src/server/chat-context.ts`, `src/server/routes/{intelligence,radar,deals}.ts`
+- `src/mcp/tools.ts`
+- `src/monitoring/health-check.ts`
+
+Tier 3 as specified didn't include these. The phase goal was "migrate the
+remaining SQLite-primary **writers**." Reads from SQLite in serving code
+are a separate concern — they don't prevent SQLite retirement so long as
+Phase 9 deletes the `getDb()` API and forces a compile-time migration. Not
+urgent; flagged for visibility.
+
+---
+
+## Verification (Tier 3)
+
+```
+npm run typecheck   → clean
+npm test            → 649 passed (21 files, 3 skipped). No regressions.
+```
+
+No scripts invoked against real PG. All Tier 3 scripts are CLI-only and
+would make large writes; per task, held until Lightsail deploy.
+
+## Files changed in Tier 3
+
+```
+M  src/ingestion/icao-hex-ingest.ts           (bulk UPDATE via VALUES-join)
+M  src/ingestion/parquet-ingest.ts            (bulk INSERT + per-batch dedup)
+M  src/ingestion/faa-operators-full.ts        (bulk upsert + pre-fetched counts)
+M  src/ingestion/faa-full-ingest.ts           (bulk INSERT/UPSERT for 3 tables)
+M  src/ingestion/opensky-worker.ts            (D1-pattern PG rewrite)
+M  src/ingestion/pipeline.ts                  (step 2/3 commands → npx tsx *.ts)
+M  src/memory/schema-pg.sql                   (added kg flag cols + fleet_stats)
+NEW src/ingestion/classify-aircraft.ts        (converted from .mjs)
+NEW src/ingestion/update-graph.ts             (converted from .mjs)
+D  classify-aircraft.mjs                      (deleted, replaced by .ts)
+D  update-graph.mjs                           (deleted, replaced by .ts)
+```
+
+## Phase 6 summary
+
+After Tier 3, **no writer listed in the Tier 1/2/3 scope targets SQLite.**
+SQLite retention is limited to:
+
+- `src/memory/*` stores (read/write helpers consumed by server + orchestrator).
+  These are pending Phase 9 retirement.
+- The seven flagged scripts above (ntsb-ingest, airmen-ingest, etc.) — not
+  in any Tier 3 scope, flagged for Tier 4 or direct retirement.
+- `DealStore(eval-deals.db)` in quote-eval — intentional sandbox, not
+  production data.
+
+Phase 6 goal — "SQLite has no live writers in the migrated critical path"
+— is met. Full retirement (Phase 9) needs to address the `src/memory/*`
+stores + the seven flagged scripts. No blockers to deploy Tier 1–3 migrations
+to Lightsail.
