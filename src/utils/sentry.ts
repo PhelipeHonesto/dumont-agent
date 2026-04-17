@@ -148,3 +148,36 @@ export async function flushSentry(timeoutMs = 2000): Promise<void> {
     // best-effort
   }
 }
+
+/** Register uncaughtException + unhandledRejection handlers that log.fatal,
+ *  flush Sentry, and exit. Uses stderr directly (not pino) because an
+ *  uncaught exception may have left the logger in an undefined state, and
+ *  a static import of logger.js would form a cycle. */
+export function installProcessHandlers(component: string): void {
+  const emitFatal = (err: unknown, reason: "uncaughtException" | "unhandledRejection") => {
+    const line = JSON.stringify({
+      level: 60,
+      time: Date.now(),
+      service: "osa-dumont",
+      version: readVersion(),
+      component,
+      reason,
+      err: err instanceof Error
+        ? { type: err.name, message: err.message, stack: err.stack }
+        : { value: String(err) },
+      msg: reason,
+    });
+    try { process.stderr.write(line + "\n"); } catch { /* best-effort */ }
+  };
+
+  process.on("uncaughtException", (err) => {
+    emitFatal(err, "uncaughtException");
+    captureFatal(err, { component, reason: "uncaughtException" });
+    void flushSentry().finally(() => setTimeout(() => process.exit(1), 200));
+  });
+  process.on("unhandledRejection", (reason) => {
+    emitFatal(reason, "unhandledRejection");
+    captureFatal(reason, { component, reason: "unhandledRejection" });
+    void flushSentry().finally(() => setTimeout(() => process.exit(1), 200));
+  });
+}

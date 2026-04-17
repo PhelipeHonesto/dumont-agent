@@ -20,19 +20,11 @@ import { closePg } from "../memory/pg-database.js";
 import { globalLimiter, heavyLimiter } from "./middleware/rate-limit.js";
 import { errorTracker, errorRouter } from "./middleware/error-tracker.js";
 import { childLogger } from "../utils/logger.js";
-import { initSentry, flushSentry } from "../utils/sentry.js";
+import { initSentry, installProcessHandlers } from "../utils/sentry.js";
 
 initSentry();
+installProcessHandlers("server");
 const log = childLogger("server");
-
-process.on("uncaughtException", (err) => {
-  log.fatal({ err }, "uncaught exception");
-  void flushSentry().finally(() => setTimeout(() => process.exit(1), 200));
-});
-process.on("unhandledRejection", (reason) => {
-  log.fatal({ err: reason }, "unhandled rejection");
-  void flushSentry().finally(() => setTimeout(() => process.exit(1), 200));
-});
 
 // ── Env Validation ──────────────────────────────────────────────────────
 

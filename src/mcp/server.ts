@@ -9,19 +9,11 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { closeDb, setPgBridge } from "../memory/database.js";
 import { registerTools } from "./tools.js";
 import { childLogger } from "../utils/logger.js";
-import { initSentry, flushSentry } from "../utils/sentry.js";
+import { initSentry, installProcessHandlers } from "../utils/sentry.js";
 
 initSentry();
+installProcessHandlers("mcp-server");
 const log = childLogger("mcp-server");
-
-process.on("uncaughtException", (err) => {
-  log.fatal({ err }, "uncaught exception");
-  void flushSentry().finally(() => setTimeout(() => process.exit(1), 200));
-});
-process.on("unhandledRejection", (reason) => {
-  log.fatal({ err: reason }, "unhandled rejection");
-  void flushSentry().finally(() => setTimeout(() => process.exit(1), 200));
-});
 
 // Initialize PG bridge if postgres mode
 if (process.env.DATABASE_TYPE === "postgres") {
