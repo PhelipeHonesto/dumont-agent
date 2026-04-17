@@ -889,8 +889,19 @@ CREATE TABLE IF NOT EXISTS data_quality_runs (
   anomalies INTEGER NOT NULL DEFAULT 0,
   overall_status TEXT NOT NULL CHECK (overall_status IN ('green', 'yellow', 'red')),
   details JSONB,
-  schema_version INTEGER NOT NULL DEFAULT 1
+  schema_version INTEGER NOT NULL DEFAULT 1,
+  -- Per-check rows (Phase 7 verify). Nullable so legacy holistic rows from
+  -- analytics/data-quality.ts continue to work unchanged.
+  run_id UUID,
+  check_name TEXT,
+  status TEXT CHECK (status IS NULL OR status IN ('pass', 'fail')),
+  threshold TEXT,
+  actual_value TEXT,
+  context JSONB
 );
+
+CREATE INDEX IF NOT EXISTS idx_dqr_run_id ON data_quality_runs(run_id);
+CREATE INDEX IF NOT EXISTS idx_dqr_check_name ON data_quality_runs(check_name);
 
 -- ── 32: validation_reports (Phase 2 D4 — cross-validation vs adsb.lol) ─────
 -- One row per UTC date. Recorded by src/ingestion/cross-validate.ts after each
