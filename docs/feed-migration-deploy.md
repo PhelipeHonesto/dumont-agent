@@ -213,3 +213,74 @@ aws s3 ls s3://osa-dumont-backup/raw/adsb-osa/$(date -u -v-1d +%Y/%m/%Y-%m-%d)/
 Rollback for packager: pure reads from `adsb_positions` + writes to S3. Safe
 to re-run any date; idempotent via the `ON CONFLICT (date) DO UPDATE` in the
 audit table and S3 overwrites.
+
+---
+
+## Phase 2 Deliverable 3 — Query router + MCP tools
+
+Gives the agent a single query surface (`queryPositions`) that transparently
+routes between Postgres (hot, last 48 h) and S3 Parquet via DuckDB (cold,
+older). Four new MCP tools expose it.
+
+**New files / changes:**
+- `src/query/positions-router.ts` — `queryHot`, `queryCold`, `queryPositions`
+- `tests/positions-router.test.ts` — 9 unit tests (routing, dedupe, bbox, limit, empty parquet)
+- `src/mcp/tools.ts` — +4 tools: `get_positions`, `replay_airspace`, `get_aircraft_roster`, `get_coverage_stats`
+- `package.json` — `+ duckdb@1.4.4`
+
+**Install verification on Lightsail:**
+
+DuckDB has a C++ native core. The npm package ships prebuilt binaries for
+linux-x64 so `npm install` on Lightsail should pull them directly:
+
+```bash
+ssh lightsail "cd ~/dumont-agent && git pull && npm install --no-audit --no-fund"
+ssh lightsail "cd ~/dumont-agent && npm ls duckdb"
+# EXPECT: duckdb@1.4.4, no native build errors
+ssh lightsail "cd ~/dumont-agent && node -e \"import('duckdb').then(d=>{const db=new d.default.Database(':memory:');db.all('SELECT 42 n',(e,r)=>{console.log(r);db.close();})})\""
+# EXPECT: [ { n: 42 } ]
+```
+
+If prebuilt binaries are missing for the Lightsail arch, `npm install` falls
+back to building from source (needs `build-essential` + `python3`). Pre-installed
+on Ubuntu LTS images.
+
+**Fallback if duckdb npm can't install cleanly:** switch to shell-out to the
+duckdb CLI binary (`curl -L https://install.duckdb.org | sh` installs the
+static 25 MB binary). Not needed for the initial deploy — flagging as Plan B.
+
+**Environment:** the router uses `CREATE SECRET` with `PROVIDER credential_chain`,
+so DuckDB picks up AWS credentials from the same place the S3 uploader does
+(env vars or instance role). No new env vars required. `SUPABASE_DATABASE_URL`
+is already in `.env` for Postgres.
+
+**MCP tool registration verification:**
+
+After restarting the MCP process on Lightsail:
+```bash
+ssh lightsail "pm2 restart mcp"
+ssh lightsail "pm2 logs mcp --lines 20 --nostream"
+# No errors on startup. Tool count should be 12 (8 existing) + 4 new = 16.
+```
+
+From a Claude Desktop client connected to the MCP server, list tools and
+confirm `get_positions`, `replay_airspace`, `get_aircraft_roster`, and
+`get_coverage_stats` appear.
+
+**Smoke test from Claude Desktop (post-deploy, hot path):**
+```
+Tool: get_positions
+  time_start: <ISO, 1h ago>
+  time_end:   <ISO, now>
+  limit: 10
+```
+Expected: ~10 positions returned, from the last hour of feed data.
+
+**Cold path:** testable only after the packager has run at least once (23:30 UTC)
+and S3 has `positions.parquet` files. Until then, cold-tier queries return an
+empty array (the router consults `osa_position_archive` for packaged days and
+skips unavailable ones silently).
+
+**Rollback:** router and tools are pure read paths. No data writes. Revert the
+commit with `git revert <sha>` and `pm2 restart mcp` to remove the new tools.
+The hot path (Postgres) is unaffected by the rollback.

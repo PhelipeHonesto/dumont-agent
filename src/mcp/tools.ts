@@ -10,6 +10,7 @@ import { getDb, getDatabase } from "../memory/database.js";
 import { KnowledgeGraphStore } from "../memory/knowledge-graph.js";
 import { getDataHealth, getFeedHealth } from "../monitoring/health-queries.js";
 import { getMarketOverview, getOperatorProfile, getAirportReport } from "../analytics/wingx-queries.js";
+import { queryPositions, type PositionQuery } from "../query/positions-router.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -559,6 +560,228 @@ export function registerTools(server: McpServer): void {
     },
     async ({ airport_icao, date }) => {
       return textResult(await getAirportReport(getDatabase(), airport_icao.toUpperCase(), date));
+    },
+  );
+
+  // ── get_positions ──────────────────────────────────────────────────
+  // Routes hot/cold automatically via queryPositions (last 48h = Postgres,
+  // older = S3 Parquet via DuckDB).
+  server.tool(
+    "get_positions",
+    "Position history for an aircraft within a time range. Routes automatically " +
+      "between the hot tier (last 48h, Postgres) and the cold tier (older, S3 Parquet " +
+      "via DuckDB). Accepts either icao_hex or tail_number.",
+    {
+      icao_hex: z.string().optional().describe("ICAO 24-bit hex code, 6 chars (lowercase)"),
+      tail_number: z.string().optional().describe("US tail number, alternative to icao_hex"),
+      time_start: z.string().describe("ISO-8601 timestamp, inclusive"),
+      time_end: z.string().describe("ISO-8601 timestamp, exclusive"),
+      limit: z.number().optional().describe("Max rows (default 10000, router cap 1000000)"),
+    },
+    async ({ icao_hex, tail_number, time_start, time_end, limit }) => {
+      const startEpoch = Math.floor(Date.parse(time_start) / 1000);
+      const endEpoch = Math.floor(Date.parse(time_end) / 1000);
+      if (!Number.isFinite(startEpoch) || !Number.isFinite(endEpoch)) {
+        return textResult({ error: "invalid time_start or time_end — expected ISO-8601" });
+      }
+
+      let icao = icao_hex?.toLowerCase();
+      if (!icao && tail_number) {
+        const db = getDatabase();
+        const row = await db
+          .prepare("SELECT icao_hex FROM faa_aircraft WHERE tail_number = ?")
+          .get(tail_number.toUpperCase()) as { icao_hex: string | null } | undefined;
+        if (!row?.icao_hex) {
+          return textResult({ error: "tail_number not found in faa_aircraft", tail_number });
+        }
+        icao = row.icao_hex.toLowerCase();
+      }
+
+      const query: PositionQuery = {
+        timeStart: startEpoch,
+        timeEnd: endEpoch,
+        limit: clampLimit(limit, 10_000, 100_000),
+      };
+      if (icao) query.icao = icao;
+
+      const rows = await queryPositions(query);
+      return textResult({
+        query: { icao_hex: icao ?? null, time_start, time_end, limit: query.limit },
+        count: rows.length,
+        positions: rows,
+      });
+    },
+  );
+
+  // ── replay_airspace ────────────────────────────────────────────────
+  server.tool(
+    "replay_airspace",
+    "All aircraft positions within a geographic bounding box during a time window. " +
+      "Useful for 'show me all traffic over X at time Y'. Routes hot/cold automatically.",
+    {
+      min_lat: z.number().describe("South edge of bbox"),
+      max_lat: z.number().describe("North edge of bbox"),
+      min_lon: z.number().describe("West edge of bbox"),
+      max_lon: z.number().describe("East edge of bbox"),
+      time_start: z.string().describe("ISO-8601 timestamp"),
+      time_end: z.string().describe("ISO-8601 timestamp"),
+      limit: z.number().optional().describe("Max rows (default 50000)"),
+    },
+    async ({ min_lat, max_lat, min_lon, max_lon, time_start, time_end, limit }) => {
+      const startEpoch = Math.floor(Date.parse(time_start) / 1000);
+      const endEpoch = Math.floor(Date.parse(time_end) / 1000);
+      if (!Number.isFinite(startEpoch) || !Number.isFinite(endEpoch)) {
+        return textResult({ error: "invalid time_start or time_end — expected ISO-8601" });
+      }
+      const rows = await queryPositions({
+        timeStart: startEpoch,
+        timeEnd: endEpoch,
+        bbox: { minLat: min_lat, maxLat: max_lat, minLon: min_lon, maxLon: max_lon },
+        limit: clampLimit(limit, 50_000, 500_000),
+      });
+      return textResult({
+        query: { bbox: { min_lat, max_lat, min_lon, max_lon }, time_start, time_end },
+        count: rows.length,
+        positions: rows,
+      });
+    },
+  );
+
+  // ── get_aircraft_roster ────────────────────────────────────────────
+  // Distinct aircraft observed on a specific UTC date. Enriched with
+  // faa_aircraft metadata where available.
+  server.tool(
+    "get_aircraft_roster",
+    "List distinct aircraft observed on a UTC date, enriched with FAA metadata. " +
+      "Useful for 'who flew that day'. Routes hot/cold automatically.",
+    {
+      date: z.string().describe("UTC date as YYYY-MM-DD"),
+    },
+    async ({ date }) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return textResult({ error: "invalid date — expected YYYY-MM-DD" });
+      }
+      const startEpoch = Math.floor(new Date(`${date}T00:00:00Z`).getTime() / 1000);
+      const endEpoch = startEpoch + 86_400;
+
+      // Reuse the router for this; fetch a high cap and project distinct icaos.
+      const rows = await queryPositions({
+        timeStart: startEpoch,
+        timeEnd: endEpoch,
+        limit: 1_000_000,
+      });
+      const seen = new Map<string, { first_seen: number; last_seen: number; positions: number }>();
+      for (const r of rows) {
+        const e = seen.get(r.icao_hex);
+        if (!e) {
+          seen.set(r.icao_hex, { first_seen: r.timestamp, last_seen: r.timestamp, positions: 1 });
+        } else {
+          if (r.timestamp < e.first_seen) e.first_seen = r.timestamp;
+          if (r.timestamp > e.last_seen) e.last_seen = r.timestamp;
+          e.positions++;
+        }
+      }
+
+      // Enrich with FAA metadata
+      const db = getDatabase();
+      const icaos = [...seen.keys()];
+      const meta = new Map<string, { tail: string | null; type: string | null; op: string | null }>();
+      if (icaos.length > 0) {
+        const rows2 = await db
+          .prepare(
+            `SELECT icao_hex, tail_number, model, certificate_holder
+             FROM faa_aircraft WHERE icao_hex = ANY(?)`,
+          )
+          .all(icaos) as Array<{
+            icao_hex: string; tail_number: string | null; model: string | null; certificate_holder: string | null;
+          }>;
+        for (const r of rows2) {
+          meta.set(r.icao_hex.toLowerCase(), {
+            tail: r.tail_number,
+            type: r.model,
+            op: r.certificate_holder,
+          });
+        }
+      }
+
+      const roster = [...seen.entries()]
+        .map(([icao, stats]) => ({
+          icao_hex: icao,
+          tail_number: meta.get(icao)?.tail ?? null,
+          aircraft_type: meta.get(icao)?.type ?? null,
+          operator: meta.get(icao)?.op ?? null,
+          first_seen: new Date(stats.first_seen * 1000).toISOString(),
+          last_seen: new Date(stats.last_seen * 1000).toISOString(),
+          positions: stats.positions,
+        }))
+        .sort((a, b) => b.positions - a.positions);
+
+      return textResult({
+        date,
+        distinct_aircraft: roster.length,
+        roster,
+      });
+    },
+  );
+
+  // ── get_coverage_stats ─────────────────────────────────────────────
+  // Answers "how good is our data for day X?" Prefers the packaged-day
+  // audit table for cold dates; falls back to live counts.
+  server.tool(
+    "get_coverage_stats",
+    "Coverage statistics for a UTC date: row count, distinct aircraft, and per-hour " +
+      "density. Sources from osa_position_archive for packaged days; falls back to live " +
+      "PG counts for recent days.",
+    {
+      date: z.string().describe("UTC date as YYYY-MM-DD"),
+    },
+    async ({ date }) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return textResult({ error: "invalid date — expected YYYY-MM-DD" });
+      }
+
+      // Check audit table first (packaged days)
+      const db = getDatabase();
+      let archived: Record<string, unknown> | undefined;
+      try {
+        archived = await db
+          .prepare(
+            `SELECT date, status, rows, distinct_aircraft, compressed_bytes, packaged_at
+             FROM osa_position_archive WHERE date = ?`,
+          )
+          .get(date) as Record<string, unknown> | undefined;
+      } catch {
+        // Table may not exist yet — continue to live fallback
+      }
+
+      // Per-hour density — always query live if the date is within hot window
+      const startEpoch = Math.floor(new Date(`${date}T00:00:00Z`).getTime() / 1000);
+      const endEpoch = startEpoch + 86_400;
+
+      const rows = await queryPositions({
+        timeStart: startEpoch,
+        timeEnd: endEpoch,
+        limit: 1_000_000,
+      });
+
+      const perHour = Array.from({ length: 24 }, () => ({ positions: 0, aircraft: new Set<string>() }));
+      for (const r of rows) {
+        const hr = Math.floor((r.timestamp - startEpoch) / 3600);
+        if (hr >= 0 && hr < 24) {
+          perHour[hr]!.positions++;
+          perHour[hr]!.aircraft.add(r.icao_hex);
+        }
+      }
+
+      return textResult({
+        date,
+        archive_status: archived?.status ?? "not_packaged",
+        archive_rows: archived?.rows ?? null,
+        archive_distinct_aircraft: archived?.distinct_aircraft ?? null,
+        live_rows: rows.length,
+        live_distinct_aircraft: new Set(rows.map((r) => r.icao_hex)).size,
+        hourly: perHour.map((h, i) => ({ hour: i, positions: h.positions, distinct_aircraft: h.aircraft.size })),
+      });
     },
   );
 }
