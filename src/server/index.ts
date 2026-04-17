@@ -19,17 +19,20 @@ import { closeDb, setPgBridge } from "../memory/database.js";
 import { closePg } from "../memory/pg-database.js";
 import { globalLimiter, heavyLimiter } from "./middleware/rate-limit.js";
 import { errorTracker, errorRouter } from "./middleware/error-tracker.js";
+import { childLogger } from "../utils/logger.js";
+
+const log = childLogger("server");
 
 // ── Env Validation ──────────────────────────────────────────────────────
 
 const IS_PROD = process.env.NODE_ENV === "production";
 
 if (!process.env.ANTHROPIC_API_KEY) {
-  console.warn("[dumont] WARNING: ANTHROPIC_API_KEY not set — chat/LLM endpoints will fail, intelligence API will work");
+  log.warn({}, "ANTHROPIC_API_KEY not set — chat/LLM endpoints will fail, intelligence API will work");
 }
 
 if (!process.env.VAPI_SECRET) {
-  console.warn("[security] VAPI_SECRET not set — /chat/completions is unauthenticated" + (IS_PROD ? " (PRODUCTION)" : " (dev)"));
+  log.warn({ mode: IS_PROD ? "PRODUCTION" : "dev" }, "VAPI_SECRET not set — /chat/completions is unauthenticated");
 }
 
 // ── Database Backend ───────────────────────────────────────────────────
@@ -101,7 +104,7 @@ if (process.env.ENABLE_OPENSKY !== "false") {
   setTimeout(() => {
     import("../ingestion/opensky-worker.js")
       .then((m) => m.startWorker?.())
-      .catch((err) => console.warn(`[opensky] Failed to start: ${err instanceof Error ? err.message : String(err)}`));
+      .catch((err) => log.warn({ err }, "opensky worker failed to start"));
   }, 5000);
 }
 

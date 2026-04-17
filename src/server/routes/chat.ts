@@ -12,6 +12,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { authMiddleware, validateBody } from "../middleware.js";
 import { BASE_PROMPT, buildChatContext } from "../chat-context.js";
 import { estimateInputTokens } from "../../utils/safe-llm-call.js";
+import { childLogger } from "../../utils/logger.js";
+
+const log = childLogger("chat");
 
 export const chatRouter = Router();
 
@@ -64,7 +67,7 @@ chatRouter.post("/api/chat", validateBody(ChatBodySchema), async (req: Request, 
 
     res.write("data: [DONE]\n\n");
   } catch (err) {
-    console.error(`[chat] ${err instanceof Error ? err.message : String(err)}`);
+    log.error({ err }, "chat error");
     res.write(`data: ${JSON.stringify({ error: err instanceof Error ? err.message : "Stream failed" })}\n\n`);
   }
 

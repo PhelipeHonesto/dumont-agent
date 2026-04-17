@@ -16,12 +16,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { closeDb } from "../memory/database.js";
 import { registerTools } from "./tools.js";
+import { childLogger } from "../utils/logger.js";
+
+const log = childLogger("mcp-sse");
 
 const PORT = parseInt(process.env.MCP_SSE_PORT ?? "3002", 10);
 const AUTH_TOKEN = process.env.MCP_AUTH_TOKEN;
 
 if (!AUTH_TOKEN) {
-  console.warn("[mcp-sse] MCP_AUTH_TOKEN not set — running without auth (dev mode)");
+  log.warn({}, "MCP_AUTH_TOKEN not set — running without auth (dev mode)");
 }
 
 // ── Auth check ──────────────────────────────────────────────────────────

@@ -7,6 +7,9 @@
  */
 
 import rateLimit from "express-rate-limit";
+import { childLogger } from "../../utils/logger.js";
+
+const log = childLogger("rate-limit");
 
 /** Global rate limit: 100 requests per minute per IP. */
 export const globalLimiter = rateLimit({
@@ -16,7 +19,7 @@ export const globalLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many requests — try again later" },
   handler: (_req, res, _next, options) => {
-    console.warn(`[rate-limit] Global limit hit: ${_req.ip}`);
+    log.warn({ ip: _req.ip }, "global rate limit hit");
     res.status(429).json(options.message);
   },
   skip: (req) => {
@@ -34,7 +37,7 @@ export const heavyLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many requests to this endpoint — try again later" },
   handler: (_req, res, _next, options) => {
-    console.warn(`[rate-limit] Heavy limit hit: ${_req.ip} → ${_req.path}`);
+    log.warn({ ip: _req.ip, path: _req.path }, "heavy rate limit hit");
     res.status(429).json(options.message);
   },
 });

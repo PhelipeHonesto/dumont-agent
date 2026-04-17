@@ -8,6 +8,9 @@ import { randomUUID, createHash } from "crypto";
 import { processConversation } from "../dumont-brain.js";
 import { streamClaudeResponse, getClaudeResponse, type MessageParam } from "../claude-sdr.js";
 import { WebhookDedup } from "../../memory/webhook-dedup.js";
+import { childLogger } from "../../utils/logger.js";
+
+const log = childLogger("vapi-llm");
 
 export const vapiRouter = Router();
 
@@ -137,7 +140,7 @@ vapiRouter.post("/chat/completions", async (req: Request, res: Response) => {
     try {
       content = await getClaudeResponse(claudeMessages, result);
     } catch (err) {
-      console.error("[vapi] Claude fallback:", (err as Error).message);
+      log.error({ err }, "Claude fallback");
       content = result.response;
     }
 
@@ -167,7 +170,7 @@ vapiRouter.post("/chat/completions", async (req: Request, res: Response) => {
       send(sseChunk(completionId, ts, { content: text }));
     }
   } catch (err) {
-    console.error("[vapi] Claude stream fallback:", (err as Error).message);
+    log.error({ err }, "Claude stream fallback");
     const words = result.response.split(/(\s+)/);
     for (const w of words) {
       if (w) send(sseChunk(completionId, ts, { content: w }));

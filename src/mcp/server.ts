@@ -8,6 +8,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { closeDb, setPgBridge } from "../memory/database.js";
 import { registerTools } from "./tools.js";
+import { childLogger } from "../utils/logger.js";
+
+const log = childLogger("mcp-server");
 
 // Initialize PG bridge if postgres mode
 if (process.env.DATABASE_TYPE === "postgres") {
@@ -45,6 +48,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("MCP server failed to start:", err);
+  log.fatal({ err }, "MCP server failed to start");
   process.exit(1);
 });

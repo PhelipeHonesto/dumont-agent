@@ -9,6 +9,9 @@ import { appendFileSync, statSync, readFileSync, writeFileSync, existsSync } fro
 import { resolve } from "node:path";
 import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
+import { childLogger } from "../../utils/logger.js";
+
+const log = childLogger("error-tracker");
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -49,7 +52,7 @@ function logError(entry: ErrorEntry): void {
     rotateIfNeeded();
     appendFileSync(LOG_PATH, JSON.stringify(entry) + "\n");
   } catch (err) {
-    console.error("[error-tracker] Failed to write error log:", err);
+    log.error({ err }, "failed to write error log");
   }
 }
 
@@ -66,7 +69,7 @@ export function errorTracker(err: Error, req: Request, res: Response, _next: Nex
   };
 
   logError(entry);
-  console.error(`[error] ${entry.method} ${entry.route}: ${entry.message}`);
+  log.error({ method: entry.method, route: entry.route, message: entry.message }, "request error");
 
   if (!res.headersSent) {
     res.status(500).json({ error: "Internal server error" });
