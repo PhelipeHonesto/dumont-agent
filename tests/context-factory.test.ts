@@ -7,7 +7,6 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   createDealContext,
   updateDealContext,
-  _resetDealCounter,
 } from "../src/orchestrator/deal-context-manager.js";
 import {
   buildIntakeContext,
@@ -184,8 +183,6 @@ function makeFakeStores(options?: {
 // ── Tests ─────────────────────────────────────────────────────────────────
 
 describe("ContextFactory", () => {
-  beforeEach(() => _resetDealCounter());
-
   // ── buildIntakeContext ─────────────────────────────────────────────────
 
   describe("buildIntakeContext", () => {

@@ -23,7 +23,7 @@ import type { FetchFn, PriceEstimateResult } from "../src/integrations/aviapages
 import { DealStore } from "../src/memory/deal-store.js";
 import type { DealRecord } from "../src/schemas/deal-record.js";
 import type { DealContext } from "../src/schemas/deal-context.js";
-import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
+import { createDealContext, updateDealContext } from "../src/orchestrator/deal-context-manager.js";
 import { MARGIN_POLICY, QUOTE_VALIDITY } from "../src/config.js";
 import { createTestDb } from "../src/memory/database.js";
 
@@ -130,8 +130,6 @@ function makeDealRecord(overrides: Partial<DealRecord> = {}): DealRecord {
 // ── Phase 1: Estimate ────────────────────────────────────────────────────
 
 describe("estimate (Phase 1)", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("returns price range from successful Aviapages call", async () => {
     const apiResult: PriceEstimateResult = { low: 25000, high: 35000, flightTime: 150, fuelBurn: 280 };
     const client = new AviapagesClient({ apiKey: "test" }, mockFetch(apiResult));
@@ -216,8 +214,6 @@ describe("estimate (Phase 1)", () => {
 // ── Historical Delta Correction ──────────────────────────────────────────
 
 describe("estimate with historical delta correction", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("adjusts estimate range using historical pricing delta", async () => {
     // Historical deals show Aviapages underestimates by 12% on KTEB→KPBI
     const records = [
@@ -332,8 +328,6 @@ describe("checkBudgetFit", () => {
 });
 
 describe("budget mismatch via Guardian", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("Guardian blocks when budget max below adjusted estimate floor", () => {
     const ctx = makeDealCtx({ budgetMin: 10000, budgetMax: 15000 });
     updateDealContext(ctx, {
@@ -376,8 +370,6 @@ describe("budget mismatch via Guardian", () => {
 // ── Phase 2: Real Quote ──────────────────────────────────────────────────
 
 describe("quote (Phase 2)", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("calculates OSA price with default margin (8%)", async () => {
     const ctx = makeDealCtx();
     const result = await quote(ctx, { operatorPrice: 28000 });
@@ -449,8 +441,6 @@ describe("quote (Phase 2)", () => {
 // ── Margin Calculations ──────────────────────────────────────────────────
 
 describe("margin calculation edge cases", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("margin at policy minimum (6%)", async () => {
     const ctx = makeDealCtx();
     const result = await quote(ctx, { operatorPrice: 28000, margin: MARGIN_POLICY.min });
@@ -481,8 +471,6 @@ describe("margin calculation edge cases", () => {
 // ── Quote vs Estimate Sanity (via Guardian) ──────────────────────────────
 
 describe("quote vs estimate sanity check", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("Guardian passes when quote within 25% of estimate median", () => {
     const ctx = makeDealCtx();
     updateDealContext(ctx, {
@@ -623,8 +611,6 @@ describe("calcEstimateDelta", () => {
 // ── End-to-End: Estimate + Quote ─────────────────────────────────────────
 
 describe("end-to-end: estimate then quote", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("full flow: estimate → budget check → quote → Guardian", async () => {
     // Step 1: Get estimate
     const apiResult: PriceEstimateResult = { low: 25000, high: 35000, flightTime: 150, fuelBurn: 280 };

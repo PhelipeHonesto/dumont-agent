@@ -26,8 +26,6 @@ import {
   resolveAircraftPerf,
 } from "../src/capabilities/guardian.js";
 import { createDealContext, updateDealContext } from "../src/orchestrator/deal-context-manager.js";
-import { _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
-
 // ── Test Fixtures ─────────────────────────────────────────────────────────
 
 /** Build a realistic deal context with trip data populated. */

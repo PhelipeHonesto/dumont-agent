@@ -12,11 +12,8 @@ import { processChunk, extractAllEntities, extractPrice, generateSummary } from 
 import type { TranscriptChunk, DetectedEntity, Call } from "../src/schemas/call.js";
 import { VoiceCopilotAdapter, generateCallBrief } from "../src/channels/voice.js";
 import { CallStore } from "../src/memory/call-store.js";
-import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
+import { createDealContext, updateDealContext } from "../src/orchestrator/deal-context-manager.js";
 import { createTestDb } from "../src/memory/database.js";
-
-beforeEach(() => _resetDealCounter());
-
 // ── Mock helpers ─────────────────────────────────────────────────────────
 
 function twilioFetch(responses: Record<string, unknown>[] = [{ sid: "CF_test_123", status: "init" }]): TwilioFetchFn {

@@ -17,10 +17,7 @@ import type { OperatorRecord, AirportCoords } from "../src/capabilities/sourcing
 import { checkTimer } from "../src/capabilities/scenario.js";
 import { AviapagesClient } from "../src/integrations/aviapages.js";
 import type { FetchFn } from "../src/integrations/aviapages.js";
-import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
-
-beforeEach(() => _resetDealCounter());
-
+import { createDealContext, updateDealContext } from "../src/orchestrator/deal-context-manager.js";
 // ── Intake Edge Cases ────────────────────────────────────────────────────
 
 describe("intake edge cases", () => {

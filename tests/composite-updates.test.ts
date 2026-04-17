@@ -28,7 +28,6 @@ import {
 import {
   createDealContext,
   updateDealContext,
-  _resetDealCounter,
 } from "../src/orchestrator/deal-context-manager.js";
 import { advanceStage } from "../src/orchestrator/stage-transitions.js";
 import type { DealContext } from "../src/schemas/deal-context.js";
@@ -161,8 +160,6 @@ function makeFullCtx(): DealContext {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe("recordDeal with compositeStores — all 4 stores populated", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("populates all 4 composite stores on a closed deal", () => {
     const stores = makeAllStores();
     const ctx = makeFullCtx();
@@ -201,8 +198,6 @@ describe("recordDeal with compositeStores — all 4 stores populated", () => {
 // ── RouteIntel ─────────────────────────────────────────────────────────────
 
 describe("RouteIntel updates via recordDeal", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("avgPrice30d calculated from recent deals", () => {
     const stores = makeAllStores();
 
@@ -369,8 +364,6 @@ describe("RouteIntel updates via recordDeal", () => {
 // ── OperatorProfile ────────────────────────────────────────────────────────
 
 describe("OperatorProfile updates via recordDeal", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("reliabilityScore formula: closedDeals/allDeals + 0.1 * min(allDeals/10, 1)", () => {
     const stores = makeAllStores();
 
@@ -511,8 +504,6 @@ describe("OperatorProfile updates via recordDeal", () => {
 // ── ClientProfile ──────────────────────────────────────────────────────────
 
 describe("ClientProfile updates via recordDeal", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("totalSpend sums only closed deals", () => {
     const stores = makeAllStores();
 
@@ -642,8 +633,6 @@ describe("ClientProfile updates via recordDeal", () => {
 // ── ValidationLedger ───────────────────────────────────────────────────────
 
 describe("ValidationLedger updates via recordDeal", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("outcome mapping: closed → booked", () => {
     const stores = makeAllStores();
     const ctx = makeFullCtx();
@@ -809,8 +798,6 @@ describe("ValidationLedger updates via recordDeal", () => {
 // ── Backwards Compatibility ────────────────────────────────────────────────
 
 describe("recordDeal without compositeStores (backwards compatible)", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("DealRecord is still created and persisted", () => {
     const { store, cleanup } = makeDealStorePath();
     const ctx = makeFullCtx();

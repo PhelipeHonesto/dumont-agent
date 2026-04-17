@@ -19,7 +19,7 @@ import { evaluateDraft } from "../../src/capabilities/draft-evaluator.js";
 import { processChunk, extractAllEntities, generateSummary } from "../../src/capabilities/transcript-processor.js";
 import { regressStage } from "../../src/orchestrator/stage-transitions.js";
 import { closeDeal } from "../../src/orchestrator/index.js";
-import { createDealContext, updateDealContext, _resetDealCounter } from "../../src/orchestrator/deal-context-manager.js";
+import { createDealContext, updateDealContext } from "../../src/orchestrator/deal-context-manager.js";
 import { advanceStage } from "../../src/orchestrator/stage-transitions.js";
 import { createConversation, addMessageToConversation } from "../../src/schemas/conversation.js";
 import { MessageStore } from "../../src/memory/message-store.js";
@@ -31,9 +31,6 @@ import { generateMessageId } from "../../src/schemas/message.js";
 import type { DealContext } from "../../src/schemas/deal-context.js";
 import type { TranscriptChunk, Call } from "../../src/schemas/call.js";
 import { createTestDb } from "../../src/memory/database.js";
-
-beforeEach(() => _resetDealCounter());
-
 // ── Fixture helpers ──────────────────────────────────────────────────────
 
 function tmpStore(): { db: import("better-sqlite3").Database; dealStore: DealStore; msgStore: MessageStore; callStore: CallStore; autoStore: AutonomyStore; cleanup: () => void } {

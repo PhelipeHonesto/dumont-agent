@@ -22,7 +22,7 @@ import type { AirportCoords } from "../src/memory/learning-loop.js";
 import { DealStore } from "../src/memory/deal-store.js";
 import { closeDeal } from "../src/orchestrator/index.js";
 import type { PipelineResult, PipelineHooks } from "../src/orchestrator/index.js";
-import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
+import { createDealContext, updateDealContext } from "../src/orchestrator/deal-context-manager.js";
 import { advanceStage } from "../src/orchestrator/stage-transitions.js";
 import type { DealContext } from "../src/schemas/deal-context.js";
 import { createTestDb } from "../src/memory/database.js";
@@ -192,8 +192,6 @@ describe("computeRouteDistance", () => {
 // ── buildDealRecord ──────────────────────────────────────────────────────
 
 describe("buildDealRecord", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("builds record with all fields from closed deal", () => {
     const ctx = makeClosedDealCtx();
     ctx.presentation.decisionAt = new Date().toISOString();
@@ -323,8 +321,6 @@ describe("buildDealRecord", () => {
 // ── recordDeal (persist to DealStore) ────────────────────────────────────
 
 describe("recordDeal", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("persists record to DealStore", () => {
     const { store, cleanup } = makeStore();
     const ctx = makeClosedDealCtx();
@@ -350,8 +346,6 @@ describe("recordDeal", () => {
 // ── closeDeal (orchestrator) ─────────────────────────────────────────────
 
 describe("closeDeal", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("transitions to closed stage for successful deal", () => {
     const { store, cleanup } = makeStore();
     const ctx = makeClosedDealCtx();
@@ -490,8 +484,6 @@ describe("closeDeal", () => {
 // ── DealStore Query Verification After Recording ─────────────────────────
 
 describe("DealStore queries after deal recording", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("getByRoute returns the recorded deal", () => {
     const { store, cleanup } = makeStore();
     const ctx = makeClosedDealCtx();

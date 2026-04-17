@@ -26,7 +26,7 @@ import { checksAfterSourcing } from "../src/capabilities/guardian.js";
 import type { OperatorCertData } from "../src/capabilities/guardian.js";
 import { DealStore } from "../src/memory/deal-store.js";
 import type { DealRecord } from "../src/schemas/deal-record.js";
-import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
+import { createDealContext, updateDealContext } from "../src/orchestrator/deal-context-manager.js";
 import { createTestDb } from "../src/memory/database.js";
 
 // ── Test Fixtures ─────────────────────────────────────────────────────────
@@ -276,8 +276,6 @@ describe("scoreRelationship", () => {
 // ── Composite Scoring ────────────────────────────────────────────────────
 
 describe("scoreOperator (composite)", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("weights sum to 1.0", () => {
     const sum = WEIGHTS.proximity + WEIGHTS.laneHistory + WEIGHTS.responseTime + WEIGHTS.pricingAccuracy + WEIGHTS.relationship;
     expect(sum).toBeCloseTo(1.0, 10);
@@ -340,8 +338,6 @@ describe("scoreOperator (composite)", () => {
 // ── Full Sourcing ────────────────────────────────────────────────────────
 
 describe("sourcing (main entry)", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("selects highest-scored operator as primary", async () => {
     const ctx = makeDealCtx();
     const result = await sourcing(ctx, {
@@ -466,8 +462,6 @@ describe("sourcing (main entry)", () => {
 // ── Cold Start Behavior ──────────────────────────────────────────────────
 
 describe("cold start (no history)", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("proximity dominates ranking with no DealStore", async () => {
     const ctx = makeDealCtx();
     const operators = [
@@ -534,8 +528,6 @@ describe("cold start (no history)", () => {
 // ── Guardian Cert Validation After Sourcing ──────────────────────────────
 
 describe("Guardian cert validation after sourcing", () => {
-  beforeEach(() => _resetDealCounter());
-
   function makeCerts(): Map<string, OperatorCertData> {
     return new Map([
       ["op_a", { operatorId: "op_a", part135Active: true, insuranceCurrent: true, argusRating: "gold", wyvernRating: null }],

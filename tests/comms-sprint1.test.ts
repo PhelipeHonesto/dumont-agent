@@ -15,14 +15,11 @@ import { matchThread } from "../src/router/thread-matcher.js";
 import type { ActiveDeal } from "../src/router/thread-matcher.js";
 import { classifyIntent, classifySender } from "../src/router/intent-classifier.js";
 import { routeMessage } from "../src/router/message-router.js";
-import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
+import { createDealContext, updateDealContext } from "../src/orchestrator/deal-context-manager.js";
 import { advanceStage } from "../src/orchestrator/stage-transitions.js";
 import type { DealContext } from "../src/schemas/deal-context.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
-
-beforeEach(() => _resetDealCounter());
-
 function makeMsg(overrides: Partial<Message> = {}): Message {
   return {
     id: generateMessageId(),

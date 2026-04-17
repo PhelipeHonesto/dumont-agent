@@ -15,7 +15,7 @@ import { regressStage } from "../../src/orchestrator/stage-transitions.js";
 import { PipelineError } from "../../src/utils/errors.js";
 import { AutonomyStore } from "../../src/memory/autonomy-store.js";
 import { MessageStore } from "../../src/memory/message-store.js";
-import { createDealContext, updateDealContext, _resetDealCounter } from "../../src/orchestrator/deal-context-manager.js";
+import { createDealContext, updateDealContext } from "../../src/orchestrator/deal-context-manager.js";
 import { advanceStage } from "../../src/orchestrator/stage-transitions.js";
 import { createConversation, addMessageToConversation } from "../../src/schemas/conversation.js";
 import { generateMessageId } from "../../src/schemas/message.js";
@@ -23,9 +23,6 @@ import type { Message, MessageChannel } from "../../src/schemas/message.js";
 import type { DealContext } from "../../src/schemas/deal-context.js";
 
 import { createTestDb } from "../../src/memory/database.js";
-
-beforeEach(() => _resetDealCounter());
-
 const mockFetch = async () => ({ ok: true, status: 200, json: async () => ({ id: "m1" }) });
 
 function tmpAutoStore(): { store: AutonomyStore; cleanup: () => void } {

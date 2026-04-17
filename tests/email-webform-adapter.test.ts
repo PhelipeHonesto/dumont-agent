@@ -16,12 +16,12 @@ import type { ActiveDeal } from "../src/router/thread-matcher.js";
 import { createConversation, addMessageToConversation } from "../src/schemas/conversation.js";
 import { generateMessageId } from "../src/schemas/message.js";
 import type { Message } from "../src/schemas/message.js";
-import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
+import { createDealContext, updateDealContext } from "../src/orchestrator/deal-context-manager.js";
 import { advanceStage } from "../src/orchestrator/stage-transitions.js";
 import { createHmac } from "node:crypto";
 import { createTestDb } from "../src/memory/database.js";
 
-beforeEach(() => { _resetDealCounter(); _clearTemplateCache(); });
+beforeEach(() => { _clearTemplateCache(); });
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 

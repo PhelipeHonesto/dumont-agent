@@ -31,7 +31,6 @@ import {
 } from "../src/capabilities/intake.js";
 import type { ParsedRequest } from "../src/capabilities/intake.js";
 import { createDealContext } from "../src/orchestrator/deal-context-manager.js";
-import { _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
 import { DealStore } from "../src/memory/deal-store.js";
 import type { DealRecord } from "../src/schemas/deal-record.js";
 import { createTestDb } from "../src/memory/database.js";
@@ -598,8 +597,6 @@ describe("detectRepeatClient", () => {
 // ── Full Intake Capability ───────────────────────────────────────────────
 
 describe("intake (full capability)", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("parses clean text request and qualifies", async () => {
     const ctx = createDealContext("sim");
     const result = await intake(FIXTURES.cleanText, ctx, { today: TODAY });

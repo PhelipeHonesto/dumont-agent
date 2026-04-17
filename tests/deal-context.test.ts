@@ -13,7 +13,6 @@ import {
   createDealContext,
   updateDealContext,
   snapshotContext,
-  _resetDealCounter,
 } from "../src/orchestrator/deal-context-manager.js";
 import {
   advanceStage,
@@ -22,8 +21,6 @@ import {
 } from "../src/orchestrator/stage-transitions.js";
 
 describe("DealContext Schema", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("creates a valid deal context", () => {
     const ctx = createDealContext("sim");
     const result = DealContextSchema.safeParse(ctx);
@@ -65,8 +62,6 @@ describe("DealContext Schema", () => {
 });
 
 describe("Deal Context Manager", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("updates context sections via shallow merge", () => {
     const ctx = createDealContext("sim");
     updateDealContext(ctx, {
@@ -93,8 +88,6 @@ describe("Deal Context Manager", () => {
 });
 
 describe("Stage Transitions", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("allows the happy path", () => {
     const ctx = createDealContext("sim");
     advanceStage(ctx, "qualified");

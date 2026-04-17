@@ -13,12 +13,9 @@ import { respond, buildRespondSystemPrompt } from "../src/capabilities/respond.j
 import { MessageStore } from "../src/memory/message-store.js";
 import type { Message } from "../src/schemas/message.js";
 import { generateMessageId } from "../src/schemas/message.js";
-import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
+import { createDealContext, updateDealContext } from "../src/orchestrator/deal-context-manager.js";
 import { advanceStage } from "../src/orchestrator/stage-transitions.js";
 import { createTestDb } from "../src/memory/database.js";
-
-beforeEach(() => _resetDealCounter());
-
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 function makeStore(): { msgStore: MessageStore; autoStore: AutonomyStore; cleanup: () => void } {

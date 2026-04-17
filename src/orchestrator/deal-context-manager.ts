@@ -129,7 +129,3 @@ export function snapshotContext(ctx: DealContext): DealContext {
   return structuredClone(ctx);
 }
 
-/** No-op — kept for backwards compatibility with tests. ULIDs are globally unique. */
-export function _resetDealCounter(): void {
-  // ULIDs don't need resetting — they're globally unique by design.
-}

@@ -15,7 +15,7 @@ import {
   isAllowedRegression,
 } from "../src/orchestrator/stage-transitions.js";
 import { PipelineError } from "../src/utils/errors.js";
-import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
+import { createDealContext, updateDealContext } from "../src/orchestrator/deal-context-manager.js";
 import { advanceStage } from "../src/orchestrator/stage-transitions.js";
 import type { DealContext } from "../src/schemas/deal-context.js";
 
@@ -86,8 +86,6 @@ function makeFullDealCtx(): DealContext {
 // ── isAllowedRegression ──────────────────────────────────────────────────
 
 describe("isAllowedRegression", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("allows presented → estimated", () => {
     expect(isAllowedRegression("presented", "estimated")).toBe(true);
   });
@@ -132,8 +130,6 @@ describe("isAllowedRegression", () => {
 // ── regressStage: data clearing ──────────────────────────────────────────
 
 describe("regressStage data clearing", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("presented → estimated clears sourcing + quote + presentation", () => {
     const ctx = makeFullDealCtx();
     advanceTo(ctx, "presented");
@@ -203,8 +199,6 @@ describe("regressStage data clearing", () => {
 // ── regressStage: error cases ────────────────────────────────────────────
 
 describe("regressStage error cases", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("throws PipelineError for regression from closed", () => {
     const ctx = makeFullDealCtx();
     advanceTo(ctx, "closed");
@@ -245,8 +239,6 @@ describe("regressStage error cases", () => {
 // ── regressStage: history logging ────────────────────────────────────────
 
 describe("regressStage history logging", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("logs regression to stageHistory with reason", () => {
     const ctx = makeFullDealCtx();
     advanceTo(ctx, "presented");
@@ -286,8 +278,6 @@ describe("regressStage history logging", () => {
 // ── regressStage: preserves unrelated data ───────────────────────────────
 
 describe("regressStage preserves client and trip data", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("preserves client data on regression", () => {
     const ctx = makeFullDealCtx();
     advanceTo(ctx, "presented");
@@ -339,8 +329,6 @@ describe("regressStage preserves client and trip data", () => {
 // ── Double regression ────────────────────────────────────────────────────
 
 describe("double regression", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("supports presented → sourced → estimated", () => {
     const ctx = makeFullDealCtx();
     advanceTo(ctx, "presented");

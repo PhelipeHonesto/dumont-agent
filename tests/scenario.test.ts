@@ -22,7 +22,7 @@ import {
 import type { QuotePresentation, TimerStatus, BackupAction } from "../src/capabilities/scenario.js";
 import { checksBeforePresentation } from "../src/capabilities/guardian.js";
 import type { DealContext } from "../src/schemas/deal-context.js";
-import { createDealContext, updateDealContext, _resetDealCounter } from "../src/orchestrator/deal-context-manager.js";
+import { createDealContext, updateDealContext } from "../src/orchestrator/deal-context-manager.js";
 import { QUOTE_VALIDITY } from "../src/config.js";
 
 // ── Test Fixtures ─────────────────────────────────────────────────────────
@@ -95,8 +95,6 @@ function makeFullDealCtx(overrides?: {
 // ── buildPresentation ────────────────────────────────────────────────────
 
 describe("buildPresentation", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("builds complete presentation from valid deal context", () => {
     const ctx = makeFullDealCtx();
     const pres = buildPresentation(ctx);
@@ -290,8 +288,6 @@ describe("checkTimer", () => {
 // ── Backup Activation Logic ──────────────────────────────────────────────
 
 describe("determineBackupAction", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("auto_within_10pct: auto-presents when backup within 10%", () => {
     const ctx = makeFullDealCtx({ substitutionPref: "auto_within_10pct", osaPrice: 30000 });
     // Backup at $32,000 = +6.7% → within 10%
@@ -373,8 +369,6 @@ describe("determineBackupAction", () => {
 // ── scenario() Main Entry Point ──────────────────────────────────────────
 
 describe("scenario (main entry)", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("returns presentation fields on happy path", async () => {
     const ctx = makeFullDealCtx();
     const result = await scenario(ctx);
@@ -431,8 +425,6 @@ describe("scenario (main entry)", () => {
 // ── Guardian Pre-Presentation Check ──────────────────────────────────────
 
 describe("Guardian checksBeforePresentation", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("passes with all data present", () => {
     const ctx = makeFullDealCtx();
     const checks = checksBeforePresentation(ctx);
@@ -474,8 +466,6 @@ describe("Guardian checksBeforePresentation", () => {
 // ── End-to-End: Presentation + Timer + Backup ────────────────────────────
 
 describe("end-to-end scenario flow", () => {
-  beforeEach(() => _resetDealCounter());
-
   it("full flow: build presentation → timer check → backup activation", () => {
     const ctx = makeFullDealCtx({ substitutionPref: "auto_within_10pct", osaPrice: 30000 });
 
