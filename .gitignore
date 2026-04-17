@@ -13,6 +13,7 @@ dashboard/dist/
 
 # Runtime data
 data/
+scripts/s3-restore-state.json
 
 # Editor / OS
 .DS_Store
