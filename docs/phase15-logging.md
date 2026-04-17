@@ -128,21 +128,32 @@ pm2 set pm2-logrotate:retain 14
 pm2 set pm2-logrotate:compress true
 ```
 
-## Scope — what's converted and what's pending
+## Coverage status
 
-| Tier | Path | Files | Approx console.* | Status |
-|------|------|-------|------------------|--------|
-| 1 | `src/ingestion/` | 22 | ~445 | 1 file done (opensky-worker) — **pending** |
-| 2 | `src/server/` | 5 | ~15 | pending |
-| 3 | `src/mcp/` | 2 | ~6 | pending |
-| 4 | `src/memory/` | 3 | ~44 | pending |
-| 5 | `src/analytics/` | 3 | ~25 | pending |
-| 6 | `src/eval/` | 1 | ~21 | pending |
-| 7 | `scripts/` | 4 | ~118 | pending |
+Phase 15 Step 1 targeted **production-critical error paths only** (fatal
+handlers, catch-block errors, retry/warning paths, worker lifecycle),
+not a full 750+ call rewrite. CLI summary tables, progress counters,
+and Usage text stay as `console.log` per the Step 5 rule.
 
-Excluded (per instruction):
-- `src/ingestion/history-backfill.ts` (just committed in ad1b681)
-- `scripts/s3-bulk-restore.ts` (just committed in d2844c8)
+| Tier | Path | Files touched | Error/warn converted | Status |
+|------|------|---------------|----------------------|--------|
+| 1 | `src/ingestion/` | 18 | ~40 | done (commits 6f8c640, ae51236) |
+| 2 | `src/server/` + `src/mcp/` | 7 | 10 | done (commit 9794a26) |
+| 3 | `src/memory/` + `src/analytics/` + `src/eval/` | 7 | ~15 | done (this commit) |
+
+Info/debug-level events (e.g., `[opensky] caches loaded…`,
+`[archive] ${date}: done` lines) **remain as `console.log`** in most
+files. Convert them opportunistically in future work if structured
+per-event telemetry becomes useful.
+
+Excluded deliberately:
+- `src/ingestion/history-backfill.ts` (recent commit ad1b681)
+- `scripts/s3-bulk-restore.ts` (recent commit d2844c8)
+- `scripts/*` (dev-only CLIs, pretty output is the point)
+- `src/integrations/`, `src/orchestrator/`, `src/run-sim.ts`,
+  `src/scripts/seed-db.ts`, `src/utils/safe-llm-call.ts`,
+  `src/monitoring/health-check.ts` — mostly single-line legacy
+  `console.error` calls; convert when touched for other reasons.
 
 ## Upgrade path
 

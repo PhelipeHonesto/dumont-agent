@@ -12,6 +12,9 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPool, closePg } from "./pg-database.js";
+import { childLogger } from "../utils/logger.js";
+
+const log = childLogger("migrate-pg");
 
 // Load .env if present
 try {
@@ -80,8 +83,7 @@ async function main() {
 
   const missing = expected.filter((t) => !tables.includes(t));
   if (missing.length > 0) {
-    console.error(`\n[migrate-pg] WARNING: ${missing.length} expected tables missing:`);
-    for (const t of missing) console.error(`  - ${t}`);
+    log.error({ missing }, "expected tables missing");
   } else {
     console.log(`\n[migrate-pg] All ${expected.length} expected tables verified.`);
   }
@@ -91,7 +93,7 @@ async function main() {
   if (extResult.rows.length > 0) {
     console.log("[migrate-pg] pgvector extension: enabled");
   } else {
-    console.warn("[migrate-pg] pgvector extension: NOT enabled (may need superuser)");
+    log.warn({}, "pgvector extension NOT enabled (may need superuser)");
   }
 
   // Check seed data
@@ -103,6 +105,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[migrate-pg] Fatal:", err);
+  log.fatal({ err }, "migrate-pg fatal error");
   process.exit(1);
 });

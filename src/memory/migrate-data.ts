@@ -13,6 +13,9 @@
  */
 
 import { readFileSync } from "node:fs";
+import { childLogger } from "../utils/logger.js";
+
+const log = childLogger("migrate-data");
 import { resolve } from "node:path";
 import Database from "better-sqlite3";
 import pg from "pg";
@@ -289,7 +292,7 @@ async function migrateTable(
       errors++;
       const msg = err instanceof Error ? err.message : String(err);
       // Truncate error message for readability
-      console.error(`[migrate] ${def.name}: batch error at offset ${offset} — ${msg.slice(0, 200)}`);
+      log.error({ table: def.name, offset, msg: msg.slice(0, 200) }, "batch error");
 
       // Try row-by-row for this batch to salvage what we can
       for (const row of rows) {
@@ -341,7 +344,7 @@ async function main() {
   // Open PG
   const connStr = process.env.SUPABASE_DATABASE_URL;
   if (!connStr) {
-    console.error("[migrate] SUPABASE_DATABASE_URL not set");
+    log.error({}, "SUPABASE_DATABASE_URL not set");
     process.exit(1);
   }
   console.log(`[migrate] Target: Supabase PostgreSQL`);
@@ -365,8 +368,7 @@ async function main() {
   if (args.table) {
     const found = TABLES.find((t) => t.name === args.table);
     if (!found) {
-      console.error(`[migrate] Unknown table: ${args.table}`);
-      console.error(`Available: ${TABLES.map((t) => t.name).join(", ")}`);
+      log.error({ requested: args.table, available: TABLES.map((t) => t.name) }, "unknown table");
       process.exit(1);
     }
     tablesToMigrate = [found];
@@ -407,6 +409,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[migrate] Fatal:", err);
+  log.fatal({ err }, "migrate-data fatal error");
   process.exit(1);
 });

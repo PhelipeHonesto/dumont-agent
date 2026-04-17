@@ -13,6 +13,9 @@
  */
 
 import { readFileSync } from "node:fs";
+import { childLogger } from "../utils/logger.js";
+
+const log = childLogger("quote-eval");
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ulid } from "ulid";
@@ -443,6 +446,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Quote eval failed:", err);
+  log.fatal({ err }, "quote eval failed");
   process.exit(1);
 });

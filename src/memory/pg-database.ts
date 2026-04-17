@@ -6,6 +6,9 @@
  */
 
 import pg from "pg";
+import { childLogger } from "../utils/logger.js";
+
+const log = childLogger("pg");
 
 const { Pool } = pg;
 
@@ -30,7 +33,7 @@ export function getPool(): pg.Pool {
   });
 
   pool.on("error", (err) => {
-    console.error("[pg] Unexpected pool error:", err.message);
+    log.error({ err }, "unexpected pool error");
   });
 
   return pool;
