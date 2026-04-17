@@ -55,6 +55,25 @@ export async function closePg(): Promise<void> {
   }
 }
 
+/** Standalone one-off pg.Client for scripts that don't want to use the shared
+ *  pool (so they can `.end()` cleanly without closing the pool that other
+ *  callers in the same process may still be using). Applies the standard
+ *  Supabase SSL options consistently.
+ *
+ *  Caller is responsible for .connect() and .end(). */
+export function createStandaloneClient(): pg.Client {
+  const connectionString = process.env.SUPABASE_DATABASE_URL;
+  if (!connectionString) {
+    throw new Error(
+      "SUPABASE_DATABASE_URL not set. Add it to .env or set it as an environment variable.",
+    );
+  }
+  return new pg.Client({
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+  });
+}
+
 // ── SQL dialect converter ───────────────────────────────────────────────────
 
 /** Rewrite ROUND(expr, N) → ROUND((expr)::numeric, N) for PostgreSQL. */
