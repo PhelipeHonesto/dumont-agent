@@ -194,6 +194,16 @@ Outputs three S3 objects per day under `s3://osa-dumont-backup/raw/adsb-osa/YYYY
 - `prod-0.tar` — 400–800 MB (split into `.tar.aa` / `.tar.ab` if > 2 GB)
 - `manifest.json`
 
+**Memory profile:** the packager streams end-to-end — `pg-cursor` reads 5 K
+rows at a time, `@dsnp/parquetjs.appendRow` writes row-groups incrementally,
+the trace accumulator flushes one aircraft's gzipped JSON per icao-boundary,
+and tar is built by shell-out to `/usr/bin/tar` which reads from disk. No
+full-table in-memory buffer. Peak RSS observed in smoke tests: ~230 MB
+(dominated by the 313 K-row FAA enrichment map, ~104 MB). **Safe for the
+1.9 GB Lightsail instance** with substantial headroom for the feed and API
+processes alongside. Hard ceiling: `MAX_PACKAGER_RSS_MB` env var (default
+300 MB) — packager aborts loudly if exceeded.
+
 Verify after first nightly run:
 ```bash
 ssh lightsail "tail -40 ~/package.log"

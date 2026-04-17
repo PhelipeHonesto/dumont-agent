@@ -58,6 +58,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
     "pg": "^8.20.0",
+    "pg-cursor": "^2.19.0",
     "ulid": "^3.0.2",
     "zod": "^3.24.0"
   },
@@ -67,6 +68,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.20.0",
+    "@types/pg-cursor": "^2.7.2",
     "tsx": "^4.21.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
