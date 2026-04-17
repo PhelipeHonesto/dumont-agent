@@ -872,3 +872,24 @@ CREATE TABLE IF NOT EXISTS data_quality_runs (
   details JSONB,
   schema_version INTEGER NOT NULL DEFAULT 1
 );
+
+-- ── 31: osa_position_archive (Phase 2 D2 — nightly packager audit) ──────────
+-- One row per UTC day, recorded by src/ingestion/package-positions.ts after
+-- each run (complete or failed). Primary key is the date so re-runs are
+-- idempotent via UPSERT. package-positions.ts also issues CREATE TABLE IF NOT
+-- EXISTS at startup as a safety net since we don't have a PG migration runner.
+
+CREATE TABLE IF NOT EXISTS osa_position_archive (
+  date TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  rows INTEGER,
+  distinct_aircraft INTEGER,
+  compressed_bytes BIGINT,
+  positions_sha256 TEXT,
+  tar_sha256 TEXT,
+  s3_parquet_key TEXT,
+  s3_tar_key TEXT,
+  s3_manifest_key TEXT,
+  packaged_at TIMESTAMPTZ DEFAULT NOW(),
+  error_message TEXT
+);

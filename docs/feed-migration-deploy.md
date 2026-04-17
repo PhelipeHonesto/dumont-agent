@@ -168,3 +168,38 @@ If PM2 restart count climbs above 3 in 24 h, stop the feed and investigate the c
 - `opensky-worker.ts`, `adsblol-ingest.ts`, `history-backfill.ts`, `archive-adsb-raw.ts` still write SQLite. Those are separate phases.
 - The in-SQLite rows from prior runs on Lightsail stay there. We do not delete or migrate them as part of this deploy.
 - Analytics tables (`operator_market_share`, etc.) are not affected. They were already on PG; they'll now be fed by the new worker.
+
+---
+
+## Phase 2 Deliverable 2 — Nightly packager cron
+
+Runs after the feed has been live for 24 h. Packages yesterday's positions
+into S3 at 23:30 UTC (before the TTL cleanup deletes them).
+
+Pre-requisites:
+- `osa_position_archive` table exists in Supabase (the packager creates it
+  idempotently via `CREATE TABLE IF NOT EXISTS` on first run; also in
+  `src/memory/schema-pg.sql` for reference).
+- `SUPABASE_DATABASE_URL` and AWS credentials present in `~/dumont-agent/.env`.
+- Feed process running and writing to `adsb_positions` (verified in Section 7).
+
+Add to Lightsail crontab (`crontab -e`):
+```
+30 23 * * *  cd ~/dumont-agent && DATABASE_TYPE=postgres npx tsx src/ingestion/package-positions.ts --date yesterday >> ~/package.log 2>&1
+```
+
+Expected runtime: 20–30 min for a full day (~21 M positions, ~65 K aircraft).
+Outputs three S3 objects per day under `s3://osa-dumont-backup/raw/adsb-osa/YYYY/MM/YYYY-MM-DD/`:
+- `positions.parquet` — 400–800 MB
+- `prod-0.tar` — 400–800 MB (split into `.tar.aa` / `.tar.ab` if > 2 GB)
+- `manifest.json`
+
+Verify after first nightly run:
+```bash
+ssh lightsail "tail -40 ~/package.log"
+aws s3 ls s3://osa-dumont-backup/raw/adsb-osa/$(date -u -v-1d +%Y/%m/%Y-%m-%d)/
+```
+
+Rollback for packager: pure reads from `adsb_positions` + writes to S3. Safe
+to re-run any date; idempotent via the `ON CONFLICT (date) DO UPDATE` in the
+audit table and S3 overwrites.
