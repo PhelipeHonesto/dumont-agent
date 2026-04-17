@@ -873,6 +873,40 @@ CREATE TABLE IF NOT EXISTS data_quality_runs (
   schema_version INTEGER NOT NULL DEFAULT 1
 );
 
+-- ── 32: validation_reports (Phase 2 D4 — cross-validation vs adsb.lol) ─────
+-- One row per UTC date. Recorded by src/ingestion/cross-validate.ts after each
+-- comparison run (status 'complete' | 'failed' | 'missing_source').
+-- Apply in Supabase manually; cross-validate.ts also issues CREATE TABLE IF
+-- NOT EXISTS at startup.
+
+CREATE TABLE IF NOT EXISTS validation_reports (
+  date TEXT PRIMARY KEY,
+  validated_at TIMESTAMPTZ DEFAULT NOW(),
+  status TEXT NOT NULL,
+
+  osa_aircraft INTEGER,
+  adsblol_aircraft INTEGER,
+  aircraft_in_both INTEGER,
+  aircraft_only_osa INTEGER,
+  aircraft_only_adsblol INTEGER,
+
+  osa_positions INTEGER,
+  adsblol_positions INTEGER,
+  avg_positions_per_aircraft_osa REAL,
+  avg_positions_per_aircraft_adsblol REAL,
+
+  aircraft_overlap_pct REAL,
+  position_density_ratio REAL,
+
+  sample_missing_hex_osa JSONB,
+  sample_missing_hex_adsblol JSONB,
+  sample_hex_both JSONB,
+
+  osa_tar_s3_key TEXT,
+  adsblol_tar_s3_key TEXT,
+  error_message TEXT
+);
+
 -- ── 31: osa_position_archive (Phase 2 D2 — nightly packager audit) ──────────
 -- One row per UTC day, recorded by src/ingestion/package-positions.ts after
 -- each run (complete or failed). Primary key is the date so re-runs are

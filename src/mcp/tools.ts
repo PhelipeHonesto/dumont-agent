@@ -784,4 +784,74 @@ export function registerTools(server: McpServer): void {
       });
     },
   );
+
+  // ── get_coverage_vs_adsblol ────────────────────────────────────────
+  // Cross-validation report for a UTC date. Written by
+  // src/ingestion/cross-validate.ts (Phase 2 D4).
+  server.tool(
+    "get_coverage_vs_adsblol",
+    "Cross-validation report comparing our daily archive to adsb.lol's for a UTC date. " +
+      "Reports aircraft overlap, position density ratio, and samples of hex codes unique " +
+      "to each side. Returns not_validated if cross-validate.ts has not run for this date.",
+    {
+      date: z.string().describe("UTC date as YYYY-MM-DD"),
+    },
+    async ({ date }) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return textResult({ error: "invalid date — expected YYYY-MM-DD" });
+      }
+      const db = getDatabase();
+      let row: Record<string, unknown> | undefined;
+      try {
+        row = await db
+          .prepare("SELECT * FROM validation_reports WHERE date = ?")
+          .get(date) as Record<string, unknown> | undefined;
+      } catch {
+        return textResult({
+          date,
+          status: "not_validated",
+          message: "validation_reports table not yet created. Run src/ingestion/cross-validate.ts to initialize.",
+        });
+      }
+
+      if (!row) {
+        return textResult({
+          date,
+          status: "not_validated",
+          message: `Cross-validation has not run for ${date}. Run: npx tsx src/ingestion/cross-validate.ts --date ${date}`,
+        });
+      }
+
+      return textResult({
+        date,
+        status: row.status,
+        validated_at: row.validated_at,
+        aircraft: {
+          osa: row.osa_aircraft,
+          adsblol: row.adsblol_aircraft,
+          in_both: row.aircraft_in_both,
+          only_osa: row.aircraft_only_osa,
+          only_adsblol: row.aircraft_only_adsblol,
+          overlap_pct: row.aircraft_overlap_pct,
+        },
+        positions: {
+          osa: row.osa_positions,
+          adsblol: row.adsblol_positions,
+          avg_per_aircraft_osa: row.avg_positions_per_aircraft_osa,
+          avg_per_aircraft_adsblol: row.avg_positions_per_aircraft_adsblol,
+          density_ratio: row.position_density_ratio,
+        },
+        samples: {
+          missing_from_osa: row.sample_missing_hex_osa,
+          missing_from_adsblol: row.sample_missing_hex_adsblol,
+          shared: row.sample_hex_both,
+        },
+        s3: {
+          osa_tar: row.osa_tar_s3_key,
+          adsblol_tar: row.adsblol_tar_s3_key,
+        },
+        error_message: row.error_message,
+      });
+    },
+  );
 }

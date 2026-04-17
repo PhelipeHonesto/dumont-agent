@@ -284,3 +284,79 @@ skips unavailable ones silently).
 **Rollback:** router and tools are pure read paths. No data writes. Revert the
 commit with `git revert <sha>` and `pm2 restart mcp` to remove the new tools.
 The hot path (Postgres) is unaffected by the rollback.
+
+---
+
+## Phase 2 Deliverable 4 — Cross-validation vs adsb.lol
+
+Every morning at 06:00 UTC (after adsb.lol typically publishes ~03:00–05:00 UTC),
+compare yesterday's packaged OSA tar to adsb.lol's canonical tar and record a
+row in `validation_reports`. The MCP tool `get_coverage_vs_adsblol(date)` reads
+that table.
+
+**What it compares:**
+- Our tar: `s3://osa-dumont-backup/raw/adsb-osa/YYYY/MM/YYYY-MM-DD/prod-0.tar`
+  (written by `src/ingestion/package-positions.ts` at 23:30 UTC)
+- Theirs:  `s3://osa-dumont-backup/raw/adsb/YYYY/MM/YYYY-MM-DD/prod-0.tar*`
+  (archived by `src/ingestion/archive-adsb-raw.ts` daily)
+
+Extracts the aircraft index (icao hex + trace-position count) from each tar
+via `node-tar` streaming, computes overlap metrics, stores to Postgres.
+
+**Cron on Lightsail:**
+```
+0 6 * * *  cd ~/dumont-agent && DATABASE_TYPE=postgres npx tsx src/ingestion/cross-validate.ts --date yesterday >> ~/validate.log 2>&1
+```
+
+**Pre-requisites:**
+- `validation_reports` table in Supabase (created idempotently via
+  `CREATE TABLE IF NOT EXISTS` at run start; also in `src/memory/schema-pg.sql`).
+- Both tars archived for the target date. Missing source → writes
+  `status='missing_source'` and exits 0 (not a failure, retry next day).
+- `node-tar@7.x` + `@types/tar@6.x` (installed in this deliverable).
+
+**Expected runtime + memory for a full UTC day:**
+- Downloads: ~2 GB × 2 tars = ~4 GB. At Lightsail's S3 throughput (~80 MB/s for
+  same-region), ~50 s. Disk peak ~4 GB (both tars on /tmp).
+- Extract indices: 65 K aircraft × 2 tars. On smoke test with a 6.5 K-aircraft
+  tar, extract took 0.4 s. Linear → ~8–10 s per tar for full-scale.
+- Compare + upsert: < 1 s.
+- **Total: 1–2 minutes.** Peak RSS target: under 300 MB (enforced via
+  `MAX_VALIDATE_RSS_MB`, default 300). Smoke test peaked at 275 MB with the
+  small test tar.
+
+**What "healthy" looks like:**
+- `aircraft_overlap_pct` ≥ 0.90 — we see >90% of the aircraft adsb.lol sees
+  within the US bbox. Below 0.70 is a red flag (feed outage or geographic
+  filter regression).
+- `position_density_ratio` between 0.8 and 1.2 — we record roughly the same
+  number of points per aircraft as adsb.lol does. Below 0.5 suggests feed is
+  losing positions mid-flight (poll interval issues, API timeouts).
+- `aircraft_only_adsblol` sample list is mostly non-US-registered tails
+  (because we bbox-filter to continental US). If it contains many US tails,
+  our coverage has a hole.
+
+**Troubleshooting:**
+- `status=missing_source`, osa only: packager (D2) didn't run or errored — check
+  `~/package.log` and `osa_position_archive` for that date.
+- `status=missing_source`, adsblol only: adsb.lol hasn't published yet (release
+  is usually up by 05:00 UTC; we run at 06:00). If still missing at 08:00, check
+  adsb.lol's GitHub releases directly.
+- `status=failed`: read `error_message` column + `~/validate.log`. Common causes:
+  S3 5xx (retry next run), disk full (/tmp cleanup needed), JSON parse error on
+  a malformed trace file (investigate that hex code).
+
+**Rollback:** read-only audit path. Revert the commit and `pm2 restart mcp`.
+The cron just won't fire; existing rows stay.
+
+**Test 1 — self-compare sanity (pre-deploy, local):**
+```
+set -a && source .env && set +a
+npx tsx src/ingestion/package-positions.ts --test-window 8h --keep-temp
+TAR=$(ls -td /tmp/pkg-test-last-8h-* | head -1)/prod-0.tar
+npx tsx src/ingestion/cross-validate.ts --date 2026-04-16 \
+  --osa-tar-local "$TAR" --adsblol-tar-local "$TAR" --dry-run
+```
+Expected: `aircraft_overlap_pct=1.0`, `position_density_ratio=1.0`,
+`aircraft_in_both=N`, `aircraft_only_osa=0`, `aircraft_only_adsblol=0`.
+If anything else: the extractor has a bug, do not deploy.
