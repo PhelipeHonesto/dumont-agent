@@ -17,7 +17,8 @@ scripts/s3-restore-state.json
 
 # Editor / OS
 .DS_Store
-.claude/
+.claude/*
+!.claude/lessons.md
 *.log
 *.json.bak
 .gstack/

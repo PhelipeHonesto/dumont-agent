@@ -81,6 +81,8 @@ Other standing caveats: pilot-aircraft links are proximity heuristics (not FAA-a
 
 ## Common pitfalls (from past sessions)
 
+Before starting new work, skim `.claude/lessons.md` for past pitfalls specific to this codebase. The entries below are the stable rules; `lessons.md` is the appendable record of *why* each rule exists.
+
 - **Mac vs Lightsail**: confirm host before any "rebuild / archive / pipeline" command. Rebuilds run on Lightsail; the Mac is dev-only.
 - **Supabase password must be alphanumeric.** Special chars (`!`, `@`, `/`) break shell escaping and URL parsing in `SUPABASE_DATABASE_URL`.
 - **`tmux`** is mandatory for jobs > 30 min. Bare terminal = lose the job if SSH drops.
