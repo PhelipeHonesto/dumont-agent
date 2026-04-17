@@ -19,6 +19,11 @@ scripts/s3-restore-state.json
 .DS_Store
 .claude/*
 !.claude/lessons.md
+!.claude/commands
+!.claude/commands/**
+!.claude/skills
+!.claude/skills/**
+!.claude/settings.json
 *.log
 *.json.bak
 .gstack/
