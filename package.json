@@ -43,6 +43,7 @@
     "operators:trust-scores": "tsx scripts/compute-operator-trust-scores.ts",
     "operators:backfill-types": "tsx scripts/backfill-operator-types.ts",
     "operators:dedup": "tsx scripts/dedup-operator-rows.ts",
+    "operators:fix-name": "tsx scripts/fix-canonical-name.ts",
     "lint:layers": "tsx scripts/check-agent-layer-isolation.ts",
     "dq:check": "tsx scripts/dq-check.ts",
     "report:morning": "tsx scripts/morning-report.ts",
