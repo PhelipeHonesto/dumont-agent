@@ -46,6 +46,7 @@ const LOAD_ORDER = [
   "silver/",
   "analytics/",
   "gold/canonical/",
+  "gold/infra/",
   "gold/views/",
   "migrations/",
 ];
