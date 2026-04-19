@@ -43,6 +43,7 @@
     "operators:trust-scores": "tsx scripts/compute-operator-trust-scores.ts",
     "lint:layers": "tsx scripts/check-agent-layer-isolation.ts",
     "dq:check": "tsx scripts/dq-check.ts",
+    "report:morning": "tsx scripts/morning-report.ts",
     "mcp:serve": "tsx src/mcp/server.ts",
     "mcp:sse": "tsx src/mcp/server-sse.ts",
     "archive:adsb": "tsx src/ingestion/archive-adsb-raw.ts",
