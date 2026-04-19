@@ -3,11 +3,15 @@ import type pg from "pg";
 import {
   parseArgs,
   parseActionKey,
+  parseTypeKey,
   formatRowDisplay,
+  formatTypePrompt,
   approveMatch,
   rejectAndCreateNew,
   addAlias,
   escalate,
+  classifyResolvedOperator,
+  TYPE_KEYS,
   type PendingRow,
   type CandidateRef,
 } from "../scripts/operators-review.js";
@@ -29,18 +33,24 @@ const baseRow: PendingRow = {
 // ── Arg + action parsing ─────────────────────────────────────────────────
 
 describe("parseArgs", () => {
-  it("defaults to no limit", () => {
-    expect(parseArgs([])).toEqual({ limit: null, help: false });
+  it("defaults to no limit, no force", () => {
+    expect(parseArgs([])).toEqual({ limit: null, help: false, force: false });
   });
   it("reads --limit N", () => {
-    expect(parseArgs(["--limit", "10"])).toEqual({ limit: 10, help: false });
+    expect(parseArgs(["--limit", "10"])).toEqual({ limit: 10, help: false, force: false });
   });
   it("detects --help / -h", () => {
-    expect(parseArgs(["--help"])).toEqual({ limit: null, help: true });
-    expect(parseArgs(["-h"])).toEqual({ limit: null, help: true });
+    expect(parseArgs(["--help"])).toEqual({ limit: null, help: true, force: false });
+    expect(parseArgs(["-h"])).toEqual({ limit: null, help: true, force: false });
   });
   it("ignores garbage --limit values", () => {
-    expect(parseArgs(["--limit", "abc"])).toEqual({ limit: null, help: false });
+    expect(parseArgs(["--limit", "abc"])).toEqual({ limit: null, help: false, force: false });
+  });
+  it("flips force on --force", () => {
+    expect(parseArgs(["--force"])).toEqual({ limit: null, help: false, force: true });
+  });
+  it("combines --limit and --force", () => {
+    expect(parseArgs(["--limit", "5", "--force"])).toEqual({ limit: 5, help: false, force: true });
   });
 });
 
@@ -168,6 +178,180 @@ describe("escalate — skips with [ESCALATED] prefix in notes", () => {
     const { client, queries } = mockClient();
     await escalate(client, { ...baseRow, reviewer_notes: null });
     expect(queries[0]!.params[0]).toBe("[ESCALATED]");
+  });
+});
+
+// ── operator_type classification prompt ─────────────────────────────────
+
+describe("parseTypeKey — numeric keypad → operator_type", () => {
+  const expected: Array<[string, string | null]> = [
+    ["1", "part_135"],
+    ["2", "part_121"],
+    ["3", "part_91k"],
+    ["4", "foreign_aoc"],
+    ["5", "broker"],
+    ["6", "billing_agent"],
+    ["7", "financier"],
+    ["8", "holding_co"],
+    ["9", "defunct"],
+    ["0", "trust_holder"],
+    ["s", "skip"],
+    ["S", "skip"],
+    ["  s  ", "skip"],
+    ["", "skip"],           // bare Enter means skip
+    ["   ", "skip"],        // whitespace-only → skip
+    ["x", null],
+    ["abc", null],
+    ["10", null],           // two-digit rejected
+  ];
+  for (const [input, want] of expected) {
+    it(`maps "${input}" → ${want ?? "null"}`, () => {
+      expect(parseTypeKey(input)).toBe(want);
+    });
+  }
+
+  it("every OperatorType value from backfill rules is reachable via TYPE_KEYS", () => {
+    // Guards against drift between the CLI menu and the migration's enum set.
+    // If the schema ever adds a new operator_type value, TYPE_KEYS must learn it.
+    const expectedValues = [
+      "part_135","part_121","part_91k","foreign_aoc","broker",
+      "billing_agent","financier","holding_co","defunct","trust_holder",
+    ];
+    const reachable = new Set(Object.values(TYPE_KEYS).filter((v) => v !== "skip"));
+    for (const v of expectedValues) {
+      expect(reachable.has(v as never)).toBe(true);
+    }
+  });
+});
+
+describe("formatTypePrompt", () => {
+  it("lists all ten type labels", () => {
+    const out = formatTypePrompt("Example Op", null);
+    for (const label of [
+      "part_135","part_121","part_91k","foreign_aoc","broker",
+      "billing_agent","financier","holding_co","defunct","trust_holder",
+    ]) {
+      expect(out).toContain(label);
+    }
+  });
+
+  it("includes the operator name and the skip affordance", () => {
+    const out = formatTypePrompt("A-Ok Jets", null);
+    expect(out).toContain("A-Ok Jets");
+    expect(out).toContain("skip");
+  });
+
+  it("warns when an existing value is about to be overwritten", () => {
+    const out = formatTypePrompt("Example Op", "broker");
+    expect(out).toContain("broker");
+    expect(out).toMatch(/force/);
+  });
+
+  it("omits the warning when no existing value", () => {
+    const out = formatTypePrompt("Example Op", null);
+    expect(out).not.toMatch(/force/);
+  });
+});
+
+describe("classifyResolvedOperator — post-resolution prompt flow", () => {
+  function typedClient(existingType: string | null): {
+    client: pg.PoolClient;
+    updates: Array<{ sql: string; params: unknown[] }>;
+  } {
+    const updates: Array<{ sql: string; params: unknown[] }> = [];
+    const client = {
+      async query(sql: string, params: unknown[] = []) {
+        if (sql.includes("SELECT operator_type")) {
+          return { rows: [{ operator_type: existingType }], rowCount: 1 };
+        }
+        updates.push({ sql, params });
+        return { rows: [], rowCount: 1 };
+      },
+    } as unknown as pg.PoolClient;
+    return { client, updates };
+  }
+
+  it("writes the chosen operator_type when the current value is NULL", async () => {
+    const { client, updates } = typedClient(null);
+    const result = await classifyResolvedOperator(
+      client,
+      "op-123",
+      "Some Operator",
+      false,
+      async () => "1", // picks part_135
+    );
+    expect(result).toBe("part_135");
+    expect(updates).toHaveLength(1);
+    expect(updates[0]!.sql).toMatch(/UPDATE operators/);
+    expect(updates[0]!.sql).toMatch(/operator_type/);
+    expect(updates[0]!.params[0]).toBe("part_135");
+    expect(updates[0]!.params[1]).toBe("op-123");
+  });
+
+  it("skips silently when existing value is set and --force is off (no UPDATE runs)", async () => {
+    const { client, updates } = typedClient("broker");
+    const result = await classifyResolvedOperator(
+      client,
+      "op-123",
+      "Some Operator",
+      false,
+      async () => "1", // would pick part_135 — but the prompt never actually fires
+    );
+    expect(result).toBeNull();
+    expect(updates).toHaveLength(0);
+  });
+
+  it("overwrites existing value when --force is on", async () => {
+    const { client, updates } = typedClient("broker");
+    const result = await classifyResolvedOperator(
+      client,
+      "op-123",
+      "Some Operator",
+      true,              // --force
+      async () => "9",   // defunct
+    );
+    expect(result).toBe("defunct");
+    expect(updates).toHaveLength(1);
+    expect(updates[0]!.params[0]).toBe("defunct");
+  });
+
+  it("honours 'skip' (s) and leaves the column alone", async () => {
+    const { client, updates } = typedClient(null);
+    const result = await classifyResolvedOperator(
+      client,
+      "op-123",
+      "Some Operator",
+      false,
+      async () => "s",
+    );
+    expect(result).toBe("skip");
+    expect(updates).toHaveLength(0);
+  });
+
+  it("bare Enter (empty answer) is equivalent to skip", async () => {
+    const { client, updates } = typedClient(null);
+    const result = await classifyResolvedOperator(
+      client,
+      "op-123",
+      "Some Operator",
+      false,
+      async () => "",
+    );
+    expect(result).toBe("skip");
+    expect(updates).toHaveLength(0);
+  });
+
+  it("returns null and does not UPDATE on unrecognised input", async () => {
+    const { client, updates } = typedClient(null);
+    const result = await classifyResolvedOperator(
+      client,
+      "op-123",
+      "Some Operator",
+      false,
+      async () => "garbage",
+    );
+    expect(result).toBeNull();
+    expect(updates).toHaveLength(0);
   });
 });
 

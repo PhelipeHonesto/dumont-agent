@@ -36,6 +36,7 @@ import { getPool, closePg } from "../src/memory/pg-database.js";
 import { isCalibrated, THRESHOLDS } from "../src/memory/canonical/match-thresholds.js";
 import { normalize } from "../src/ingestion/safety-ratings-fuzzy.js";
 import { childLogger } from "../src/utils/logger.js";
+import type { OperatorType } from "./backfill-operator-types.js";
 
 const log = childLogger("operators-review");
 
@@ -70,7 +71,11 @@ export interface PendingRow {
 
 // ── Pure helpers (testable) ──────────────────────────────────────────────
 
-export function parseArgs(argv: string[]): { limit: number | null; help: boolean } {
+export function parseArgs(argv: string[]): {
+  limit: number | null;
+  help: boolean;
+  force: boolean;
+} {
   let limit: number | null = null;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--limit" && argv[i + 1]) {
@@ -78,7 +83,51 @@ export function parseArgs(argv: string[]): { limit: number | null; help: boolean
       if (Number.isNaN(limit)) limit = null;
     }
   }
-  return { limit, help: argv.includes("--help") || argv.includes("-h") };
+  return {
+    limit,
+    help: argv.includes("--help") || argv.includes("-h"),
+    force: argv.includes("--force"),
+  };
+}
+
+// Numeric-key → operator_type mapping for the post-resolution classification
+// prompt. Keys chosen to sit on a numeric keypad: 1-9 for the common types,
+// 0 for trust_holder (reserved edge case), s/Enter for skip. Exported for
+// testability.
+export const TYPE_KEYS: Readonly<Record<string, OperatorType | "skip">> = {
+  "1": "part_135",
+  "2": "part_121",
+  "3": "part_91k",
+  "4": "foreign_aoc",
+  "5": "broker",
+  "6": "billing_agent",
+  "7": "financier",
+  "8": "holding_co",
+  "9": "defunct",
+  "0": "trust_holder",
+  "s": "skip",
+  "": "skip",
+};
+
+export function parseTypeKey(input: string): OperatorType | "skip" | null {
+  const k = input.trim().toLowerCase();
+  return TYPE_KEYS[k] ?? null;
+}
+
+/** Human-readable operator_type menu. Layout mirrors a 3×4 keypad so a
+ * reviewer walking the queue can hit it without looking. */
+export function formatTypePrompt(operatorName: string, existing: string | null): string {
+  const lines: string[] = [];
+  lines.push(``);
+  lines.push(`  Classify '${operatorName}' operator_type:`);
+  if (existing) {
+    lines.push(`  (current value: '${existing}' — use --force to overwrite)`);
+  }
+  lines.push(`  [1] part_135       [5] broker         [9] defunct`);
+  lines.push(`  [2] part_121       [6] billing_agent  [0] trust_holder`);
+  lines.push(`  [3] part_91k       [7] financier      [s] skip (leave as is)`);
+  lines.push(`  [4] foreign_aoc    [8] holding_co`);
+  return lines.join("\n");
 }
 
 export function parseActionKey(key: string): ReviewAction | null {
@@ -233,6 +282,34 @@ export async function addAlias(
   );
 }
 
+/** Read the current operator_type for a canonical row. Returns null when
+ * the column is NULL or the row doesn't exist (caller treats missing row
+ * as an error upstream; we just want to know whether to enforce --force). */
+export async function currentOperatorType(
+  client: pg.PoolClient,
+  operatorId: string,
+): Promise<string | null> {
+  const res = await client.query<{ operator_type: string | null }>(
+    `SELECT operator_type FROM operators WHERE id = $1`,
+    [operatorId],
+  );
+  return res.rows[0]?.operator_type ?? null;
+}
+
+export async function updateOperatorType(
+  client: pg.PoolClient,
+  operatorId: string,
+  newType: OperatorType,
+): Promise<void> {
+  await client.query(
+    `UPDATE operators
+        SET operator_type = $1,
+            last_updated_at = NOW()
+      WHERE id = $2`,
+    [newType, operatorId],
+  );
+}
+
 export async function escalate(client: pg.PoolClient, row: PendingRow): Promise<void> {
   const prefix = "[ESCALATED] ";
   const newNotes = row.reviewer_notes
@@ -250,6 +327,8 @@ export async function escalate(client: pg.PoolClient, row: PendingRow): Promise<
 
 // ── Readline wrapper ─────────────────────────────────────────────────────
 
+export type PromptFn = (question: string) => Promise<string>;
+
 function prompt(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((res) => {
@@ -258,6 +337,49 @@ function prompt(question: string): Promise<string> {
       res(ans);
     });
   });
+}
+
+/**
+ * Post-resolution operator_type classification prompt.
+ *
+ * Called once per successful approve / pick-other / reject action with the
+ * resolved operator_id. Reads the current operator_type; if it's already
+ * set AND --force wasn't passed, silently skips. Otherwise shows the
+ * numeric-keypad menu, parses the answer, and UPDATEs.
+ *
+ * The promptFn parameter is the seam: production wires in the readline
+ * wrapper; tests pass a scripted answer function.
+ *
+ * Returns the OperatorType written, 'skip' when the reviewer chose to
+ * leave the column alone, or null when the flow was blocked (existing
+ * value + no --force, or unrecognised input).
+ */
+export async function classifyResolvedOperator(
+  client: pg.PoolClient,
+  operatorId: string,
+  operatorName: string,
+  force: boolean,
+  promptFn: PromptFn = prompt,
+): Promise<OperatorType | "skip" | null> {
+  const existing = await currentOperatorType(client, operatorId);
+  if (existing && !force) {
+    console.log(`  operator_type already set to '${existing}' — skipping (pass --force to overwrite)`);
+    return null;
+  }
+  console.log(formatTypePrompt(operatorName, existing));
+  const ans = await promptFn(`  Type [1-9,0,s]: `);
+  const pick = parseTypeKey(ans);
+  if (pick === null) {
+    console.log(`  ? unrecognised, leaving operator_type as ${existing ?? "NULL"}`);
+    return null;
+  }
+  if (pick === "skip") {
+    console.log(`  → operator_type left as ${existing ?? "NULL"}`);
+    return "skip";
+  }
+  await updateOperatorType(client, operatorId, pick);
+  console.log(`  ✓ operator_type = '${pick}'`);
+  return pick;
 }
 
 // ── Env load ─────────────────────────────────────────────────────────────
@@ -297,10 +419,13 @@ async function main(): Promise<void> {
     `[review] Calibration OK: calibrated_at=${THRESHOLDS.calibrated_at} (sample_size=${THRESHOLDS.calibrated_sample_size})`,
   );
 
-  const { limit, help } = parseArgs(process.argv.slice(2));
+  const { limit, help, force } = parseArgs(process.argv.slice(2));
   if (help) {
-    console.log(`Usage: npm run operators:review [-- --limit N]`);
+    console.log(`Usage: npm run operators:review [-- --limit N] [--force]`);
     return;
+  }
+  if (force) {
+    console.log(`[review] --force ON: existing operator_type values CAN be overwritten.`);
   }
 
   const pool = getPool();
@@ -311,6 +436,7 @@ async function main(): Promise<void> {
   let deferred = 0;
   let aliased = 0;
   let escalated = 0;
+  let typed = 0;
 
   try {
     const rows = await loadPending(client, limit);
@@ -330,6 +456,10 @@ async function main(): Promise<void> {
           console.log(`  ? unrecognised, try again`);
           continue inner;
         }
+        // Resolved ref is set by approve / pick-other / reject when they
+        // successfully land on an operator row; the post-switch block uses
+        // it to offer the operator_type classification prompt.
+        let resolved: { id: string; name: string } | null = null;
         try {
           switch (action) {
             case "approve": {
@@ -341,6 +471,7 @@ async function main(): Promise<void> {
               await approveMatch(client, row, top);
               console.log(`  ✓ matched '${row.scraped_name}' → '${top.canonical_name}'`);
               matched++;
+              resolved = { id: top.operator_id, name: top.canonical_name };
               break;
             }
             case "pick-other": {
@@ -358,12 +489,14 @@ async function main(): Promise<void> {
               await approveMatch(client, row, picked);
               console.log(`  ✓ matched '${row.scraped_name}' → '${picked.canonical_name}' (picked #${pickIdx + 1})`);
               matched++;
+              resolved = { id: picked.operator_id, name: picked.canonical_name };
               break;
             }
             case "reject": {
               const newId = await rejectAndCreateNew(client, row);
               console.log(`  ✓ created new operator ${newId} for '${row.scraped_name}'`);
               newOps++;
+              resolved = { id: newId, name: row.scraped_name };
               break;
             }
             case "defer": {
@@ -398,6 +531,15 @@ async function main(): Promise<void> {
           console.log(`  ✗ action failed: ${err instanceof Error ? err.message : String(err)}`);
           console.log(`  → row stays pending; retry with next row`);
         }
+        if (resolved) {
+          try {
+            const picked = await classifyResolvedOperator(client, resolved.id, resolved.name, force);
+            if (picked && picked !== "skip") typed++;
+          } catch (err) {
+            log.error({ err, operator_id: resolved.id }, "operator_type prompt failed");
+            console.log(`  ✗ operator_type prompt failed: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
         processed++;
         break inner;
       }
@@ -410,6 +552,7 @@ async function main(): Promise<void> {
     console.log(`  New ops:    ${newOps}`);
     console.log(`  Deferred:   ${deferred}`);
     console.log(`  Escalated:  ${escalated}`);
+    console.log(`  Typed:      ${typed}`);
   } finally {
     client.release();
     await closePg();
