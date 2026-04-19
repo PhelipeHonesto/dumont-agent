@@ -19,6 +19,62 @@ Runtime / DevOps reference for Dumont. CLAUDE.md links here.
 | 2 AM | S3 database backup | Snapshot PG / SQLite to `s3://osa-dumont-backup/db/` |
 | 3 AM | `npm run pipeline` | FAA diff + classify + rebuild knowledge graph + safety scores |
 
+## Manual monthly tasks
+
+> Set a recurring calendar reminder for the 1st of each month titled "Run safety:refresh". 60 seconds of manual work.
+
+### Safety ratings refresh
+
+Scrape ARGUS + Wyvern operator directories, upsert to `safety_ratings` table, sync matched rows to `faa_operators`. Internal-use-only data; consumed by the Sourcing agent for operator ranking.
+
+**Cadence**: 1st of each month. The 25-day guard in the CLI prevents accidental over-refresh; `--force` overrides it.
+
+**Prerequisites**:
+- Firecrawl Docker stack running on Mac
+  - Location: `~/firecrawl/`
+  - Start: `cd ~/firecrawl && docker compose up -d`
+  - Verify: `curl http://localhost:3002/` returns JSON
+- Mac `.env` has `SUPABASE_DATABASE_URL` set
+- `DATABASE_TYPE=postgres` env var set
+
+**Run**:
+```bash
+cd ~/osa/dumont-agent
+set -a && source .env && set +a
+export DATABASE_TYPE=postgres
+npm run safety:refresh
+```
+
+**Expected output**:
+- ARGUS: ~30 operators (pagination fix pending — see Known Issues)
+- Wyvern Wingman: ~100 operators
+- Wyvern Registered: ~190 operators
+- Total: ~300–350 unique after dedup
+- Match to FAA operators: ~60–80% (US Part 135)
+- Runtime: 60–90 seconds total
+
+**Verify after run**:
+```sql
+psql "$SUPABASE_DATABASE_URL" -c "
+  SELECT
+    COUNT(*) AS total,
+    COUNT(*) FILTER (WHERE argus_rating IS NOT NULL) AS with_argus,
+    COUNT(*) FILTER (WHERE wyvern_status IS NOT NULL) AS with_wyvern,
+    COUNT(*) FILTER (WHERE certificate_number IS NOT NULL) AS matched_to_faa,
+    MAX(last_scraped_at) AS last_run
+  FROM safety_ratings;
+"
+```
+
+**Failure handling**:
+- If one source fails, the others continue (partial success is OK).
+- Errors flow to Sentry via `childLogger("safety-refresh")` / `childLogger("safety-ratings-scrape")`.
+- To inspect: look for `log.error` entries with `component=safety-refresh` or `component=safety-ratings-scrape`.
+
+**After first successful run**:
+- The `data/seeds/safety-ratings.json` diff report logs which operators from the old manual seed are missing from the scrape.
+- Review the diff log to decide whether to delete the seed file.
+
 ## Health endpoints
 
 - `GET /health` — cheap liveness (always 200 if event loop alive)
@@ -28,7 +84,7 @@ Runtime / DevOps reference for Dumont. CLAUDE.md links here.
 
 | Script | Purpose |
 |--------|---------|
-| `test` | 681 tests, 25 files (vitest) |
+| `test` | 708 tests, 27 files (vitest) |
 | `typecheck` | `tsc --noEmit` strict |
 | `server` | Express API on :3001 |
 | `mcp:serve` | MCP server — stdio transport, 12 tools |
@@ -45,7 +101,8 @@ Runtime / DevOps reference for Dumont. CLAUDE.md links here.
 | `ingest:docindex` | FAA document index (liens, bills of sale) |
 | `ingest:airmen` | Airmen records + pilot-aircraft linking |
 | `ingest:operators` | Full Part 135 operator database |
-| `ingest:safety` | ARGUS / Wyvern / IS-BAO safety ratings |
+| `ingest:safety` | ARGUS / Wyvern / IS-BAO safety ratings (legacy JSON-seed path) |
+| `safety:refresh` | Monthly scrape of ARGUS + Wyvern → `safety_ratings` → sync to `faa_operators` |
 | `ingest:listings` | Scrape aircraft-for-sale listings |
 | `ingest:ntsb` | NTSB accident database (80K+ records) |
 | `ingest:parquet` | Generic parquet flight-data ingest (via CSV intermediate) |
