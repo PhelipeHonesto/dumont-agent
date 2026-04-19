@@ -40,6 +40,8 @@
     "operators:backfill-safety": "tsx scripts/backfill-operators-canonical-safety.ts",
     "operators:calibrate": "tsx scripts/calibrate-match-thresholds.ts",
     "operators:review": "tsx scripts/operators-review.ts",
+    "operators:trust-scores": "tsx scripts/compute-operator-trust-scores.ts",
+    "lint:layers": "tsx scripts/check-agent-layer-isolation.ts",
     "mcp:serve": "tsx src/mcp/server.ts",
     "mcp:sse": "tsx src/mcp/server-sse.ts",
     "archive:adsb": "tsx src/ingestion/archive-adsb-raw.ts",

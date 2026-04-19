@@ -162,15 +162,7 @@ export function checkBudgetFit(
   return null;
 }
 
-/**
- * Calculate the estimate-vs-actual delta for learning loop.
- * Returns a fraction: +0.12 means actual was 12% above estimate median.
- */
-export function calcEstimateDelta(
-  estimateRange: { low: number; high: number },
-  actualPrice: number,
-): number {
-  const median = (estimateRange.low + estimateRange.high) / 2;
-  if (median === 0) return 0;
-  return (actualPrice - median) / median;
-}
+// calcEstimateDelta moved to src/utils/pricing.ts (leaf util; memory
+// layer needs it too — see scripts/check-agent-layer-isolation.ts).
+// Keep a re-export here for callers that still import from this file.
+export { calcEstimateDelta } from "../utils/pricing.js";

@@ -29,7 +29,7 @@ import type {
   ClientProfileStore,
   ValidationLedgerStore,
 } from "./composite-stores.js";
-import { calcEstimateDelta } from "../capabilities/quote.js";
+import { calcEstimateDelta } from "../utils/pricing.js";
 import { haversine } from "../utils/haversine.js";
 
 // ── Season Detection ─────────────────────────────────────────────────────
