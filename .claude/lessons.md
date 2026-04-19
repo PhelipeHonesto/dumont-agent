@@ -18,6 +18,20 @@ doesn't repeat. Most recent first.
 
 ## Lessons
 
+### 2026-04-19 — Canonical operator dedup
+
+**LESSON**: Dedup moves children, never merges fields. The survivor's canonical_name / headquarters_icao / type_tags / operator_type are authoritative; the duplicate contributes only its FK children (aliases, identities, review rows). When metadata disagrees, the invoker must pick the right survivor up front — don't try to reconcile after the fact.
+
+Context: ARGUS-side `37d9a9cd...` and Wyvern-side `be8cb75c...` both named "A-Ok Jets" were created in the same safety-backfill second (same microsecond on first_seen_at, identity_pk=575 vs 576). `scripts/dedup-operator-rows.ts` re-points FK children and deletes the loser; it explicitly does NOT touch the survivor's own columns. An asymmetric integration test (KORD vs KTEB, charter vs fractional, part_135 vs part_91k) locks this invariant in.
+
+**LESSON**: FK owners of `operators(id)` (audit via information_schema, 2026-04-19): `operator_aliases.operator_id` (CASCADE), `operator_identities.operator_id` (CASCADE), `operator_match_review.resolution_operator_id` (NO ACTION). CASCADE children MUST be re-pointed before the DELETE or they get wiped. NO ACTION children MUST be re-pointed before the DELETE or the DELETE hard-fails. `operator_identities` also carries a table-global `UNIQUE (source, source_id)` — no two canonical rows can share the same pair, so the UPDATE during dedup can never hit a uniqueness conflict.
+
+Context: Wrote `scripts/dedup-operator-rows.ts` for Stage 1 hygiene. The FK audit surfaces every ownership edge; the UNIQUE insight removes the need for conflict-handling logic. Real column is `resolution_operator_id`, NOT `matched_operator_id` (a recurring spec typo — grep the schema, don't trust the write-up).
+
+**LESSON**: Survivor-picking heuristic for canonical dedup — (1) older `first_seen_at` wins; (2) higher `identity_count` wins on tie; (3) on double-tie, human pick. Soft tiebreakers (source_reliability, earlier identity_pk) are advisory to the human, not rules the script applies. The script always takes explicit `--keep` / `--merge` UUIDs.
+
+Context: A-Ok Jets hit case 3. The script reports the heuristic but never auto-picks — deleting a canonical row is irreversible (roll to backup if wrong), so the script refuses to guess. After `--commit`, the subprocess `npm run operators:trust-scores -- --commit` refreshes both scores; the survivor's new source_count and cross_source_agreement shift the numbers (A-Ok Jets: data_confidence 0.79, operator_trust 0.85 after gaining the Wyvern identity).
+
 ### 2026-04-18 — Entity resolution + data architecture
 
 **LESSON**: OSA's data needs real MDM (Master Data Management) architecture before adding more scraping sources. Every new source has different IDs and naming conventions. Without a canonical + identities layer, integration chaos compounds exponentially.
