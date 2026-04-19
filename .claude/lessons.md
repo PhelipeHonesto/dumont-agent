@@ -18,6 +18,20 @@ doesn't repeat. Most recent first.
 
 ## Lessons
 
+### 2026-04-18 — Entity resolution + data architecture
+
+**LESSON**: OSA's data needs real MDM (Master Data Management) architecture before adding more scraping sources. Every new source has different IDs and naming conventions. Without a canonical + identities layer, integration chaos compounds exponentially.
+
+Context: Attempted to sync ARGUS/Wyvern scraped ratings to faa_operators via certificate_number. Only 1 of 313 matched because each rating system uses its own internal ID (Wyvern "PRIA248H" ≠ FAA "1OCA082A"). This exposed a core data modeling gap — we were conflating source-specific IDs with a canonical operator identity.
+
+**LESSON**: Data model for AI context, not human queries. Agents can't reliably write 4-table JOINs. Pre-compute question-shaped aggregate views (Platinum layer) for every AI read. Let Bronze (raw) and Silver (per-source) tables exist but keep them off the agent's plate.
+
+Context: Per Zach Wilson's "AI-native modeling" — dimensional modeling at the base, question-first aggregations on top. OBT (One Big Table) is the right shape for agent queries because "AI thrives at mapping question → appropriate dataset." Dimensional correctness + OBT interface. Reference: https://blog.dataexpert.io/p/how-to-data-model-for-your-ai-context
+
+**LESSON**: The hard part of entity resolution is the matching algorithm, not the schema. Deterministic matches (shared IDs) are easy. Probabilistic matches (name + base + fleet overlap + address) need weighted scoring with confidence thresholds and a manual review queue for ambiguous cases. Never merge records automatically below the high-confidence threshold.
+
+Context: Surfaced while thinking about how to match 313 scraped rating records to 3,898 FAA operators. Same entity (e.g., Priester Aviation) shows up in multiple sources with different names (LLC variants, DBA variants) and different IDs. Deterministic matches are rare; fuzzy matching needs explicit confidence tracking and human review for edge cases.
+
 ### 2026-04-17 — Phase 7 rebuild + audit sprint
 
 **Host / infrastructure awareness**

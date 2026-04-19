@@ -43,7 +43,7 @@ primary backend; SQLite at `data/dumont.db` is local-dev-only legacy.
 - **NTSB accidents** — 80k+ records, 1962–present.
 - **Market signals** — for-sale listings + FAA ownership-change diffs.
 
-Schema SSOT: `src/memory/schema-pg.sql` (~45 tables / 30 migrations). Details in `docs/schema.md`.
+Schema SSOT: `src/memory/schema-pg.sql` (~45 tables / 30 migrations). Details in `docs/schema.md`. Target architecture: `docs/data-architecture.md`.
 
 ## Deployment
 
