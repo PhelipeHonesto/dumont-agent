@@ -111,7 +111,9 @@ specs/              — SPARC specs for orchestrator + capabilities
 
 - `docs/api.md` — HTTP API reference
 - `docs/schema.md` — full table list + field purposes (`src/memory/schema/` is SSOT)
-- `docs/operations.md` — npm scripts, cron, PM2, env vars
+- `docs/er-architecture-plan.md` — ontology, entity resolution principles, 9-stage build sequence
+- `docs/data-platform-plan.md` — tool choices (dbt, Dagster), layer boundaries, operational ontology, migration sequence
+- `docs/operations.md` — npm scripts (incl. `operators:dedup` / `operators:fix-name` / `operators:review` for canonical hygiene), cron, PM2, env vars
 - `docs/mcp-tools.md` — 12 MCP tools + stdio/SSE notes
 - `docs/known-issues.md` — standing data flags
 - `docs/phase7-rebuild-runbook.md` — active rebuild operations
