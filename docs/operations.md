@@ -116,7 +116,7 @@ psql "$SUPABASE_DATABASE_URL" -c "
 | `health:check` | Data freshness check (standalone) |
 | `sim` | 25 deal simulation scenarios |
 | `deal` | Single-deal end-to-end runner |
-| `db:migrate-pg` | Create PG schema in Supabase from `schema-pg.sql` |
+| `db:migrate-pg` | Create PG schema in Supabase from `src/memory/schema/` (layered) |
 | `db:migrate-data` | One-shot SQLite → Supabase data migration (historical; already ran) |
 
 ## Environment variables

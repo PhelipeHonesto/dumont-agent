@@ -43,7 +43,7 @@ primary backend; SQLite at `data/dumont.db` is local-dev-only legacy.
 - **NTSB accidents** — 80k+ records, 1962–present.
 - **Market signals** — for-sale listings + FAA ownership-change diffs.
 
-Schema SSOT: `src/memory/schema-pg.sql` (~45 tables / 30 migrations). Details in `docs/schema.md`. Target architecture: `docs/data-architecture.md`.
+Schema SSOT: `src/memory/schema/` (layered per Schema Evolution Rule 1 — `_extensions.sql`, `silver/`, `gold/`, `transactional/`, `analytics/`, `migrations/`). Details in `docs/schema.md`. Target architecture: `docs/data-architecture.md`.
 
 ## Deployment
 
@@ -94,7 +94,7 @@ Before starting new work, skim `.claude/lessons.md` for past pitfalls specific t
 ```
 src/capabilities/   — the 5 agents (intake, sourcing, quote, scenario, guardian) + supporting
 src/orchestrator/   — PIC that coordinates capabilities + DealContext + stage transitions
-src/memory/         — persistence (pg-database, composite-stores, schema-pg.sql SSOT)
+src/memory/         — persistence (pg-database, composite-stores, schema/ SSOT)
 src/mcp/            — MCP server (stdio + SSE transports; 12 tools)
 src/server/         — HTTP API (Vapi webhook, dashboard, intelligence + analytics routes)
 src/ingestion/      — data pipelines (ADS-B feed, FAA daily diff, history backfill, NTSB, cross-validate)
@@ -110,7 +110,7 @@ specs/              — SPARC specs for orchestrator + capabilities
 ## Where to find more
 
 - `docs/api.md` — HTTP API reference
-- `docs/schema.md` — full table list + field purposes (schema-pg.sql is SSOT)
+- `docs/schema.md` — full table list + field purposes (`src/memory/schema/` is SSOT)
 - `docs/operations.md` — npm scripts, cron, PM2, env vars
 - `docs/mcp-tools.md` — 12 MCP tools + stdio/SSE notes
 - `docs/known-issues.md` — standing data flags
