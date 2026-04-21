@@ -99,3 +99,12 @@ Context: levnikolaevich has 116 skills across 5 plugins. Installing all of them 
 
 **LESSON**: When an audit returns 50+ findings, triage into Critical/High/Medium/Low first. Never "fix everything" in one sprint.
 Context: Today's 7 audits produced 58 findings total. We triaged to 8 actionable items. Fixing all 58 would have blocked Phase 8 for days.
+
+**LESSON**: `.gitignore` force-includes (!pattern) override earlier 
+ignores, including .DS_Store. When ignoring OS junk inside a force-included 
+directory, use a pattern like `<dir>/**/.DS_Store` placed AFTER the 
+force-include rule.
+Context: Phase 2.5 pre-cleanup assumed .DS_Store wasn't in .gitignore; 
+actually it was, but `.claude/skills/**` force-include re-exposed it. 
+Correct fix was `.claude/**/.DS_Store` to specifically re-ignore OS junk 
+within the force-included tree.
