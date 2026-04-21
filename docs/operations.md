@@ -141,8 +141,8 @@ psql "$SUPABASE_DATABASE_URL" -c "
 ## Phase 15 — logging & observability
 
 Structured logs via pino (`src/utils/logger.ts`), Sentry bridge on
-`error` / `fatal`. See `docs/phase15-logging.md` and
-`docs/phase15-step2-sentry.md`.
+`error` / `fatal`. See `docs/archive/2026-04/phase15-logging.md` and
+`docs/archive/2026-04/phase15-step2-sentry.md`.
 
 ## Phase 7 — in-flight rebuild
 
