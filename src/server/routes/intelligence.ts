@@ -16,7 +16,7 @@ import { asyncHandler } from "../middleware.js";
 import { getDb, getDatabase } from "../../memory/database.js";
 import { KnowledgeGraphStore } from "../../memory/knowledge-graph.js";
 import { getDataHealth, getFeedHealth } from "../../monitoring/health-queries.js";
-import { getLatestQualityReport } from "../../analytics/data-quality.js";
+import { getLatestQualityReport } from "../../analytics/quality-queries.js";
 import {
   validateTailNumber, validateIcaoCode, validatePositiveInt,
   sanitizeString, handleSanitizeError, clampOffset,
