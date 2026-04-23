@@ -72,10 +72,8 @@ Ops detail: `docs/operations.md`.
 
 ## Known issues
 
-See `docs/known-issues.md` for standing data flags. Biggest active one:
-**`adsb_completed_legs` is contaminated** until the in-flight Phase 7
-rebuild finishes (runbook: `docs/phase7-rebuild-runbook.md`). Do not
-build features that assume clean leg data until verify passes 7/7.
+See `docs/known-issues.md` for standing data flags.
+`adsb_completed_legs` was rebuilt 2026-04-23 (see `docs/phase7-completion.md`); 17 permanent S3 gaps and 7 deferred reingests remain (see `docs/known-issues.md`).
 
 Other standing caveats: pilot-aircraft links are proximity heuristics (not FAA-authoritative); aircraft classification is pattern-matched on `common_name`; NTSB `airport_code` uses FAA codes (strip K prefix when joining ICAO).
 
@@ -100,7 +98,7 @@ src/server/         — HTTP API (Vapi webhook, dashboard, intelligence + analyt
 src/ingestion/      — data pipelines (ADS-B feed, FAA daily diff, history backfill, NTSB, cross-validate)
 src/analytics/      — WINGX engine, embeddings, data-quality
 src/utils/          — logger, sentry, safe-llm-call, haversine
-tests/              — 681 tests / 25 files (vitest)
+tests/              — 1036 tests / 48 files (vitest)
 scripts/            — one-off tooling (phase7-preflight, phase7-verify, s3-bulk-restore, inventory)
 .claude/            — Claude Code config, skills, commands
 docs/               — phase docs, runbooks, audits (this file's reference siblings)
