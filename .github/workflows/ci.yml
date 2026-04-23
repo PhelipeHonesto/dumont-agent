@@ -27,6 +27,9 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Layer isolation check
+        run: npm run lint:layers
+
       - name: Run tests
         run: npm test
 
