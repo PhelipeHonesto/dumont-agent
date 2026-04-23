@@ -413,7 +413,7 @@ intelligenceRouter.get(
     }
 
     const { getPool } = await import("../../memory/pg-database.js");
-    const { findSimilarRoutes } = await import("../../analytics/embeddings.js");
+    const { findSimilarRoutes } = await import("../../analytics/embeddings-queries.js");
     const similar = await findSimilarRoutes(getPool(), origin, destination, limit);
     res.json({ route: { origin, destination }, similar });
   }),

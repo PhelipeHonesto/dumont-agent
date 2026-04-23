@@ -75,6 +75,7 @@ const DATA_PLATFORM_FORBIDDEN_PREFIXES = [
 const ANALYTICS_EXEMPT: ReadonlySet<string> = new Set([
   "src/analytics/wingx-queries",
   "src/analytics/quality-queries",
+  "src/analytics/embeddings-queries",
 ]);
 
 // ── Shared types ───────────────────────────────────────────────────────────
