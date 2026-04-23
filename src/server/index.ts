@@ -100,14 +100,6 @@ app.use(errorTracker);
 
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`[dumont] Server running on port ${PORT}`);
-
-  // Start OpenSky ADS-B worker in-process (disable with ENABLE_OPENSKY=false).
-  // Runs after listen so DB bridge is fully wired. Failure lands in Sentry.
-  if (process.env.ENABLE_OPENSKY !== "false") {
-    import("../ingestion/opensky-worker.js")
-      .then((m) => m.startWorker?.())
-      .catch((err) => log.error({ err }, "opensky worker failed to start"));
-  }
 });
 
 function shutdown() {
