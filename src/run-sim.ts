@@ -33,6 +33,10 @@ import {
   AIRPORTS, OPERATORS, OPERATOR_CERTS, mockAviapagesEstimate,
 } from "./fixtures/sim-data.js";
 
+// Scenarios are written against a fixed calendar ("April 15", "next Friday").
+// Pin one clock for both Intake and Guardian so results are reproducible.
+const SIM_TODAY = new Date(2026, 2, 31); // month is 0-indexed: 2 = March
+
 // ── Types ────────────────────────────────────────────────────────────────
 
 interface ScenarioFile {
@@ -119,7 +123,7 @@ async function runScenario(
     let t = Date.now();
     // Use local-time March 31 (not UTC) to avoid timezone shift issues
     const intakeResult = await intake(sc.request, ctx, {
-      today: new Date(2026, 2, 31), // month is 0-indexed: 2 = March
+      today: SIM_TODAY,
       dealStore,
     });
     updateDealContext(ctx, { client: intakeResult.client, trip: intakeResult.trip });
@@ -135,7 +139,7 @@ async function runScenario(
 
     // ── 2. GUARDIAN: intake ────────────────────────────────────────
     t = Date.now();
-    const gIntake = await guardian("intake", ctx, { airports: AIRPORTS, operatorCerts: OPERATOR_CERTS });
+    const gIntake = await guardian("intake", ctx, { airports: AIRPORTS, operatorCerts: OPERATOR_CERTS, today: SIM_TODAY });
     ctx.guardian.passes.push(gIntake.pass);
     if (!gIntake.pass.passed) {
       stageFail("GUARDIAN:INT", gIntake.pass.checks.filter((c) => !c.passed).map((c) => c.message).join("; "), t);

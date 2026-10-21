@@ -114,6 +114,7 @@ function criticalFail(name: string, message: string): GuardianCheck {
 export function checksAfterIntake(
   ctx: DealContext,
   airports: Map<string, AirportData>,
+  today: Date = new Date(),
 ): GuardianCheck[] {
   const checks: GuardianCheck[] = [];
   const { trip } = ctx;
@@ -220,7 +221,7 @@ export function checksAfterIntake(
   // Date in the future
   if (trip.date) {
     const tripDate = new Date(trip.date);
-    const now = new Date();
+    const now = new Date(today);
     now.setHours(0, 0, 0, 0);
     if (tripDate < now) {
       checks.push(criticalFail("date_future", `Trip date ${trip.date} is in the past`));
@@ -456,6 +457,8 @@ export interface OperatorCertData {
 export interface GuardianOptions {
   airports?: Map<string, AirportData>;
   operatorCerts?: Map<string, OperatorCertData>;
+  /** Reference date for past-date checks. Defaults to now; the scenario runner pins it. */
+  today?: Date;
 }
 
 export async function guardian(
@@ -463,13 +466,13 @@ export async function guardian(
   ctx: DealContext,
   options: GuardianOptions = {},
 ): Promise<GuardianResult> {
-  const { airports = new Map(), operatorCerts } = options;
+  const { airports = new Map(), operatorCerts, today } = options;
 
   let checks: GuardianCheck[];
 
   switch (stage) {
     case "intake":
-      checks = checksAfterIntake(ctx, airports);
+      checks = checksAfterIntake(ctx, airports, today);
       break;
     case "estimated":
       checks = checksAfterEstimate(ctx);
