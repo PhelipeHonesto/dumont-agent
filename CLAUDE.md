@@ -93,7 +93,7 @@ Before starting new work, skim `.claude/lessons.md` for past pitfalls specific t
 src/capabilities/   — the 5 agents (intake, sourcing, quote, scenario, guardian) + supporting
 src/orchestrator/   — PIC that coordinates capabilities + DealContext + stage transitions
 src/memory/         — persistence (pg-database, composite-stores, schema/ SSOT)
-src/mcp/            — MCP server (stdio + SSE transports; 12 tools)
+src/mcp/            — MCP server (stdio + SSE transports; 17 tools)
 src/server/         — HTTP API (Vapi webhook, dashboard, intelligence + analytics routes)
 src/ingestion/      — data pipelines (ADS-B feed, FAA daily diff, history backfill, NTSB, cross-validate)
 src/analytics/      — WINGX engine, embeddings, data-quality

@@ -4,7 +4,7 @@
 ![tests](https://img.shields.io/badge/tests-681_passing-brightgreen)
 ![scenarios](https://img.shields.io/badge/scenarios-22%2F25_passing-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
-![MCP](https://img.shields.io/badge/MCP-12_tools-111111)
+![MCP](https://img.shields.io/badge/MCP-17_tools-111111)
 
 > Named after Alberto Santos-Dumont, the Brazilian who flew first. Now an AI that brokers flights.
 
@@ -69,7 +69,7 @@ One orchestrator (`src/orchestrator/`, the "pilot in command") decides what runs
 
 The scenario suite runs 25 realistic requests through the full pipeline with mocked pricing: "NY to South Florida next Friday, 3 people, $25k–35k", SMS shorthand, email signatures, pets and golf clubs, wheelchair access, international legs, budgets that can't work. The three that fail are known gaps: an ultra-long-range budget miss, wheelchair-accessible sourcing, and one SMS shorthand case.
 
-## MCP server: 12 aviation intelligence tools
+## MCP server: 17 aviation intelligence tools
 
 Dumont exposes its data layer to Claude and other MCP clients over stdio (local) or SSE (remote).
 
@@ -86,8 +86,12 @@ Dumont exposes its data layer to Claude and other MCP clients over stdio (local)
 | `active_listings` | Aircraft for sale |
 | `recent_transactions` | FAA ownership changes |
 | `data_health` / `feed_health` | Data freshness and ADS-B feed status |
+| `get_positions` | Position history for one aircraft; routes between the 48 h Postgres hot tier and the S3 Parquet cold tier |
+| `replay_airspace` | Every aircraft inside a bounding box during a time window |
+| `get_aircraft_roster` | Every aircraft seen on a given day, with FAA metadata |
+| `get_coverage_stats` / `get_coverage_vs_adsblol` | Archive coverage for a day, cross-checked against adsb.lol |
 
-Details: [`docs/mcp-tools.md`](docs/mcp-tools.md).
+Details for the original 12: [`docs/mcp-tools.md`](docs/mcp-tools.md). The positions and coverage tools are defined in [`src/mcp/tools.ts`](src/mcp/tools.ts).
 
 ## Quickstart
 
@@ -112,7 +116,7 @@ src/orchestrator/   pilot-in-command, DealContext, stage transitions
 src/capabilities/   intake · guardian · quote · sourcing · scenario
 src/schemas/        Zod schemas, the runtime source of truth
 src/memory/         Postgres / SQLite bridge, deal store, learning loop
-src/mcp/            MCP server (stdio + SSE), 12 tools
+src/mcp/            MCP server (stdio + SSE), 17 tools
 src/server/         HTTP API: voice webhook, dashboard, intelligence routes
 specs/              SPARC specs for the orchestrator, each capability, and the learning loop
 scenarios/          25 end-to-end validation scenarios
