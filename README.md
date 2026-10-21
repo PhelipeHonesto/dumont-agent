@@ -1,10 +1,10 @@
 # Dumont Agent
 
 [![CI](https://github.com/PhelipeHonesto/dumont-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/PhelipeHonesto/dumont-agent/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-679_passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-681_passing-brightgreen)
 ![scenarios](https://img.shields.io/badge/scenarios-22%2F25_passing-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
-![MCP](https://img.shields.io/badge/MCP-12_tools-111111)
+![MCP](https://img.shields.io/badge/MCP-17_tools-111111)
 
 > Named after Alberto Santos-Dumont, the Brazilian who flew first. Now an AI that brokers flights.
 
@@ -59,15 +59,17 @@ One orchestrator (`src/orchestrator/`, the "pilot in command") decides what runs
 
 | Check | Result | Reproduce |
 | --- | --- | --- |
-| Unit and integration tests | **679 passing** across 24 files | `npm test` |
+| Unit and integration tests | **681 passing** across 25 files | `npm test` |
 | Type check | Clean (strict) | `npm run typecheck` |
 | Layer isolation (agent code never imports data-platform code) | Passing | `npm run lint:layers` |
 | End-to-end scenario suite | **22 / 25 pass (88%)** against a 72% target | `npm run sim` |
+| Pipeline overhead per deal (no LLM, mocked pricing) | **p50 9 ms · p95 29 ms** over 180 deals | [`docs/benchmarks.md`](docs/benchmarks.md) |
+| Auth coverage | **All 37 non-public routes return 401** without a valid token | `tests/integration/auth-coverage.test.ts` |
 | CI | Type check, layer check, and tests on every push | [Actions](https://github.com/PhelipeHonesto/dumont-agent/actions) |
 
 The scenario suite runs 25 realistic requests through the full pipeline with mocked pricing: "NY to South Florida next Friday, 3 people, $25k–35k", SMS shorthand, email signatures, pets and golf clubs, wheelchair access, international legs, budgets that can't work. The three that fail are known gaps: an ultra-long-range budget miss, wheelchair-accessible sourcing, and one SMS shorthand case.
 
-## MCP server: 12 aviation intelligence tools
+## MCP server: 17 aviation intelligence tools
 
 Dumont exposes its data layer to Claude and other MCP clients over stdio (local) or SSE (remote).
 
@@ -84,8 +86,12 @@ Dumont exposes its data layer to Claude and other MCP clients over stdio (local)
 | `active_listings` | Aircraft for sale |
 | `recent_transactions` | FAA ownership changes |
 | `data_health` / `feed_health` | Data freshness and ADS-B feed status |
+| `get_positions` | Position history for one aircraft; routes between the 48 h Postgres hot tier and the S3 Parquet cold tier |
+| `replay_airspace` | Every aircraft inside a bounding box during a time window |
+| `get_aircraft_roster` | Every aircraft seen on a given day, with FAA metadata |
+| `get_coverage_stats` / `get_coverage_vs_adsblol` | Archive coverage for a day, cross-checked against adsb.lol |
 
-Details: [`docs/mcp-tools.md`](docs/mcp-tools.md).
+Details for the original 12: [`docs/mcp-tools.md`](docs/mcp-tools.md). The positions and coverage tools are defined in [`src/mcp/tools.ts`](src/mcp/tools.ts).
 
 ## Quickstart
 
@@ -93,7 +99,7 @@ Requires Node 22.
 
 ```bash
 npm install
-npm test            # 679 tests
+npm test            # 681 tests
 npm run typecheck
 npm run sim         # 25-scenario end-to-end run, no API keys needed
 npm run sim -- --scenario S02
@@ -110,7 +116,7 @@ src/orchestrator/   pilot-in-command, DealContext, stage transitions
 src/capabilities/   intake · guardian · quote · sourcing · scenario
 src/schemas/        Zod schemas, the runtime source of truth
 src/memory/         Postgres / SQLite bridge, deal store, learning loop
-src/mcp/            MCP server (stdio + SSE), 12 tools
+src/mcp/            MCP server (stdio + SSE), 17 tools
 src/server/         HTTP API: voice webhook, dashboard, intelligence routes
 specs/              SPARC specs for the orchestrator, each capability, and the learning loop
 scenarios/          25 end-to-end validation scenarios
