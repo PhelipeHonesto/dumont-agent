@@ -63,6 +63,8 @@ One orchestrator (`src/orchestrator/`, the "pilot in command") decides what runs
 | Type check | Clean (strict) | `npm run typecheck` |
 | Layer isolation (agent code never imports data-platform code) | Passing | `npm run lint:layers` |
 | End-to-end scenario suite | **22 / 25 pass (88%)** against a 72% target | `npm run sim` |
+| Pipeline overhead per deal (no LLM, mocked pricing) | **p50 9 ms · p95 29 ms** over 180 deals | [`docs/benchmarks.md`](docs/benchmarks.md) |
+| Auth coverage | **All 37 non-public routes return 401** without a valid token | `tests/integration/auth-coverage.test.ts` |
 | CI | Type check, layer check, and tests on every push | [Actions](https://github.com/PhelipeHonesto/dumont-agent/actions) |
 
 The scenario suite runs 25 realistic requests through the full pipeline with mocked pricing: "NY to South Florida next Friday, 3 people, $25k–35k", SMS shorthand, email signatures, pets and golf clubs, wheelchair access, international legs, budgets that can't work. The three that fail are known gaps: an ultra-long-range budget miss, wheelchair-accessible sourcing, and one SMS shorthand case.
