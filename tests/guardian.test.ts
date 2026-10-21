@@ -26,6 +26,9 @@ import {
   resolveAircraftPerf,
 } from "../src/capabilities/guardian.js";
 import { createDealContext, updateDealContext } from "../src/orchestrator/deal-context-manager.js";
+
+// Relative so the "valid trip" fixtures never drift into the past.
+const FUTURE_DATE = new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10);
 // ── Test Fixtures ─────────────────────────────────────────────────────────
 
 /** Build a realistic deal context with trip data populated. */
@@ -42,7 +45,7 @@ function makeDealContext(overrides?: Partial<{
     trip: {
       departure: overrides?.departure ?? "KTEB",
       arrival: overrides?.arrival ?? "KPBI",
-      date: overrides?.date ?? "2026-12-15",
+      date: overrides?.date ?? FUTURE_DATE,
       pax: overrides?.pax ?? 4,
       aircraftType: overrides?.aircraftType ?? "Phenom 300E",
       aircraftClass: overrides?.aircraftClass ?? "light",
@@ -288,6 +291,14 @@ describe("checksAfterIntake", () => {
   });
 
   // ── Date ──────────────────────────────────────────────────────────
+
+  it("judges past dates against the provided reference date", () => {
+    const ctx = makeDealContext({ date: "2026-04-15" });
+    const asOfMarch = checksAfterIntake(ctx, makeAirports(), new Date(2026, 2, 31));
+    const asOfMay = checksAfterIntake(ctx, makeAirports(), new Date(2026, 4, 1));
+    expect(asOfMarch.find((c) => c.name === "date_future")!.passed).toBe(true);
+    expect(asOfMay.find((c) => c.name === "date_future")!.passed).toBe(false);
+  });
 
   it("fails when date is in the past", () => {
     const ctx = makeDealContext({ date: "2020-01-01" });
