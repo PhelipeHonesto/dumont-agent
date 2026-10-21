@@ -1,7 +1,7 @@
 # Dumont Agent
 
 [![CI](https://github.com/PhelipeHonesto/dumont-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/PhelipeHonesto/dumont-agent/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-679_passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-681_passing-brightgreen)
 ![scenarios](https://img.shields.io/badge/scenarios-22%2F25_passing-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-12_tools-111111)
@@ -59,7 +59,7 @@ One orchestrator (`src/orchestrator/`, the "pilot in command") decides what runs
 
 | Check | Result | Reproduce |
 | --- | --- | --- |
-| Unit and integration tests | **679 passing** across 24 files | `npm test` |
+| Unit and integration tests | **681 passing** across 25 files | `npm test` |
 | Type check | Clean (strict) | `npm run typecheck` |
 | Layer isolation (agent code never imports data-platform code) | Passing | `npm run lint:layers` |
 | End-to-end scenario suite | **22 / 25 pass (88%)** against a 72% target | `npm run sim` |
@@ -93,7 +93,7 @@ Requires Node 22.
 
 ```bash
 npm install
-npm test            # 679 tests
+npm test            # 681 tests
 npm run typecheck
 npm run sim         # 25-scenario end-to-end run, no API keys needed
 npm run sim -- --scenario S02

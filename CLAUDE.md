@@ -98,7 +98,7 @@ src/server/         — HTTP API (Vapi webhook, dashboard, intelligence + analyt
 src/ingestion/      — data pipelines (ADS-B feed, FAA daily diff, history backfill, NTSB, cross-validate)
 src/analytics/      — WINGX engine, embeddings, data-quality
 src/utils/          — logger, sentry, safe-llm-call, haversine
-tests/              — 679 tests / 24 files (vitest)
+tests/              — 681 tests / 25 files (vitest)
 scripts/            — one-off tooling (phase7-preflight, phase7-verify, s3-bulk-restore, inventory)
 .claude/            — Claude Code config, skills, commands
 docs/               — phase docs, runbooks, audits (this file's reference siblings)
